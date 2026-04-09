@@ -31,6 +31,7 @@ class ExtConsultation extends CommonObject
     public $insumos_enf;
     public $rx_num;
     public $medicamentos;
+    public $observaciones;
     public $custom_data;
     public $status;
     public $note_private;
@@ -132,6 +133,7 @@ class ExtConsultation extends CommonObject
         $sql .= ", insumos_enf";
         $sql .= ", rx_num";
         $sql .= ", medicamentos";
+        $sql .= ", observaciones";
         $sql .= ", status";
         $sql .= ", custom_data";
         $sql .= ", recurrence_enabled";
@@ -162,6 +164,7 @@ class ExtConsultation extends CommonObject
         $sql .= ", '".$this->db->escape($this->insumos_enf)."'";
         $sql .= ", '".$this->db->escape($this->rx_num)."'";
         $sql .= ", '".$this->db->escape($this->medicamentos)."'";
+        $sql .= ", '".$this->db->escape($this->observaciones)."'";
         $sql .= ", ".(int) $this->status;
         $sql .= ", '".$this->db->escape($this->custom_data)."'";
         $sql .= ", ".(int) $this->recurrence_enabled;
@@ -234,6 +237,7 @@ class ExtConsultation extends CommonObject
         $sql .= " t.insumos_enf,";
         $sql .= " t.rx_num,";
         $sql .= " t.medicamentos,";
+        $sql .= " t.observaciones,";
         $sql .= " t.status,";
         $sql .= " t.custom_data,";
         $sql .= " t.recurrence_enabled,";
@@ -276,6 +280,7 @@ class ExtConsultation extends CommonObject
                 $this->insumos_enf = $obj->insumos_enf;
                 $this->rx_num = $obj->rx_num;
                 $this->medicamentos = $obj->medicamentos;
+                $this->observaciones = $obj->observaciones;
                 $this->status = (int) $obj->status;
                 $this->custom_data = $obj->custom_data;
                 $this->recurrence_enabled = (int) $obj->recurrence_enabled;
@@ -389,6 +394,7 @@ class ExtConsultation extends CommonObject
         $sql .= ", insumos_enf = '".$this->db->escape($this->insumos_enf)."'";
         $sql .= ", rx_num = '".$this->db->escape($this->rx_num)."'";
         $sql .= ", medicamentos = '".$this->db->escape($this->medicamentos)."'";
+        $sql .= ", observaciones = '".$this->db->escape($this->observaciones)."'";
         $sql .= ", status = ".(int) $this->status;
         $sql .= ", custom_data = '".$this->db->escape($this->custom_data)."'";
 
@@ -1350,6 +1356,7 @@ class ExtConsultation extends CommonObject
             $child->insumos_enf = $this->insumos_enf;
             $child->rx_num = $this->rx_num;
             $child->medicamentos = $this->medicamentos;
+            $child->observaciones = $this->observaciones;
             $child->custom_data = $this->custom_data;
             $child->status = self::STATUS_IN_PROGRESS; // Siempre en progreso las futuras
             $child->note_private = $this->note_private;

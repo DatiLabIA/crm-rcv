@@ -116,7 +116,7 @@ if ($action === 'export' && !empty($filter_types)) {
     $sql  = "SELECT c.rowid, c.date_start, c.date_end, c.tipo_atencion, c.status,";
     $sql .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
     $sql .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad,";
-    $sql .= " c.custom_data, c.note_public,";
+    $sql .= " c.custom_data, c.note_public, c.observaciones,";
     $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
     $sql .= " GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,'')))";
     $sql .= "   ORDER BY u.lastname SEPARATOR ', ') AS assigned_users";
@@ -241,7 +241,7 @@ if ($action === 'export' && !empty($filter_types)) {
             $line[] = trim((string)$val);
         }
 
-        $line[] = $cleanCell(strip_tags((string)$row->note_public));
+        $line[] = $cleanCell(strip_tags((string)$row->observaciones));
         $data[] = $line;
     }
 
@@ -410,7 +410,7 @@ if (!empty($filter_types)) {
     // Preview rows (limited)
     $sql_prev  = "SELECT c.rowid, c.date_start, c.date_end, c.tipo_atencion, c.status, c.custom_data,";
     $sql_prev .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
-    $sql_prev .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad, c.note_public,";
+    $sql_prev .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad, c.note_public, c.observaciones,";
     $sql_prev .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
     $sql_prev .= " GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,'')))";
     $sql_prev .= "   ORDER BY u.lastname SEPARATOR ', ') AS assigned_users";
@@ -865,8 +865,8 @@ if (!empty($filter_types)) {
                 print '<td>'.dol_escape_htmltag(trim(dol_trunc($val, 80))).'</td>';
             }
 
-            // Note public
-            $note = strip_tags(html_entity_decode((string)$prow->note_public, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            // Observaciones
+            $note = strip_tags(html_entity_decode((string)$prow->observaciones, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             print '<td>'.dol_escape_htmltag(trim(dol_trunc($note, 60))).'</td>';
 
             print '</tr>';

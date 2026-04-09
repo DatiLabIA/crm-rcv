@@ -129,6 +129,15 @@ if ($action == 'add' || $action == 'update') {
     $consultation->note_private = GETPOST('note_private', 'restricthtml');
     // note_public is read-only, not assigned from POST
     
+    // Observaciones: prefer imgtext hidden input (JS ran), fallback to textarea (JS didn't)
+    $obs_imgtext = GETPOST('observaciones_html', 'restricthtml');
+    if ($obs_imgtext !== '' && $obs_imgtext !== null) {
+        $consultation->observaciones = $obs_imgtext;
+    } else {
+        $obs_fallback = GETPOST('observaciones', 'restricthtml');
+        $consultation->observaciones = ($obs_fallback !== '' && $obs_fallback !== null) ? $obs_fallback : '';
+    }
+    
     // Recurrence fields
     $consultation->recurrence_enabled = GETPOST('recurrence_enabled', 'int') ? 1 : 0;
     $consultation->recurrence_interval = GETPOST('recurrence_interval', 'int');
@@ -688,6 +697,27 @@ if ($val !== '') {
                 print '</div>';
             }
         }
+        
+        // Observaciones section (universal, all consultation types - editable with image support)
+        $obs_value = GETPOSTISSET('observaciones') ? GETPOST('observaciones', 'restricthtml') : $consultation->observaciones;
+        $obs_textarea_id = 'imgtext_observaciones';
+        print '<br>';
+        print '<table class="border centpercent">';
+        print '<tr class="liste_titre"><td colspan="2">Observaciones</td></tr>';
+        print '<tr><td class="tdtop">Observaciones</td><td>';
+        print '<textarea name="observaciones" id="'.$obs_textarea_id.'_fallback" rows="3" class="flat quatrevingtpercent" style="display:none;">'.dol_escape_htmltag($obs_value).'</textarea>';
+        print '<input type="hidden" name="observaciones_html" id="'.$obs_textarea_id.'_hidden" value="">';
+        print '<div id="'.$obs_textarea_id.'" class="imgtext-editor flat quatrevingtpercent" contenteditable="true" ';
+        print 'style="min-height:80px; max-height:300px; overflow-y:auto; border:1px solid #ccc; padding:8px; background:#fff; white-space:pre-wrap;">';
+        if (preg_match('/<(img|br|div|p|span)\b/i', $obs_value)) {
+            print ExtConsultation::sanitizeImgTextHtml($obs_value);
+        } else {
+            print dol_nl2br(dol_escape_htmltag($obs_value));
+        }
+        print '</div>';
+        print '<small class="opacitymedium"><i class="fas fa-image" style="color:#666;"></i> Pega capturas de pantalla (Ctrl+V) o arrastra imágenes. Doble clic en una imagen para eliminarla</small>';
+        print '</td></tr>';
+        print '</table>';
         
         // Notes section (Solo lectura)
         $f_note_public = $consultation->note_public;

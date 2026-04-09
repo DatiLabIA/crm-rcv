@@ -46,9 +46,12 @@ CREATE TABLE IF NOT EXISTS llx_cabinetmed_extcons (
     rx_num              VARCHAR(64),
     medicamentos        TEXT,
     
+    -- Observaciones (universal, all consultation types, supports images)
+    observaciones       MEDIUMTEXT,
+    
     -- Custom fields data (JSON) & Status
     status              SMALLINT NOT NULL DEFAULT 0,
-    custom_data         TEXT,
+    custom_data         MEDIUMTEXT,
     
     -- Recurrence fields
     recurrence_enabled    TINYINT(1) NOT NULL DEFAULT 0,

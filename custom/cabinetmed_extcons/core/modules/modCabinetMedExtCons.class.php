@@ -13,7 +13,7 @@ class modCabinetMedExtCons extends DolibarrModules
      * Versión de la estructura de base de datos
      * Incrementar cada vez que se hagan cambios en la BD
      */
-    const DB_VERSION = 130; // 1.3.0 = 130
+    const DB_VERSION = 132; // 1.3.2 = 132 (observaciones PHP-based migration)
     
     public function __construct($db)
     {
@@ -157,9 +157,14 @@ class modCabinetMedExtCons extends DolibarrModules
                 $this->migrateTo110();
             }
             
-            // Migración a v1.3.0 (DB_VERSION = 130)
-            if ($installed_version < 130) {
+            // Migración a v1.3.1 (DB_VERSION = 131): observaciones column + MEDIUMTEXT + data migration
+            if ($installed_version < 131) {
                 $this->migrateTo130();
+            }
+            
+            // Migración a v1.3.2 (DB_VERSION = 132): PHP-based re-migration for missed records
+            if ($installed_version < 132) {
+                $this->migrateTo132();
             }
             
             // Actualizar versión de BD instalada
@@ -239,6 +244,23 @@ class modCabinetMedExtCons extends DolibarrModules
     private function tableExists($tablename)
     {
         $sql = "SHOW TABLES LIKE '".MAIN_DB_PREFIX.$tablename."'";
+        $resql = $this->db->query($sql);
+        if ($resql) {
+            return ($this->db->num_rows($resql) > 0);
+        }
+        return false;
+    }
+    
+    /**
+     * Check if a column exists in a table
+     * 
+     * @param string $tablename Table name without prefix
+     * @param string $columnname Column name
+     * @return bool True if exists
+     */
+    private function columnExists($tablename, $columnname)
+    {
+        $sql = "SHOW COLUMNS FROM ".MAIN_DB_PREFIX.$tablename." LIKE '".$this->db->escape($columnname)."'";
         $resql = $this->db->query($sql);
         if ($resql) {
             return ($this->db->num_rows($resql) > 0);
@@ -333,13 +355,57 @@ class modCabinetMedExtCons extends DolibarrModules
         
         $error = 0;
         
-        // Ampliar custom_data a MEDIUMTEXT para soportar imágenes base64
+        // 1. Agregar columna observaciones (MEDIUMTEXT para soportar imágenes base64)
+        if (!$this->columnExists('cabinetmed_extcons', 'observaciones')) {
+            $sql = "ALTER TABLE ".MAIN_DB_PREFIX."cabinetmed_extcons ADD COLUMN observaciones MEDIUMTEXT AFTER medicamentos";
+            if (!$this->db->query($sql)) {
+                $error++;
+                dol_syslog("modCabinetMedExtCons::migrateTo130 - Error adding observaciones column: ".$this->db->lasterror(), LOG_ERR);
+            } else {
+                dol_syslog("modCabinetMedExtCons::migrateTo130 - Added observaciones column", LOG_INFO);
+            }
+        }
+        
+        // 2. Ampliar custom_data a MEDIUMTEXT para soportar imágenes base64
         $sql = "ALTER TABLE ".MAIN_DB_PREFIX."cabinetmed_extcons MODIFY COLUMN custom_data MEDIUMTEXT";
         if (!$this->db->query($sql)) {
             $error++;
             dol_syslog("modCabinetMedExtCons::migrateTo130 - Error altering custom_data: ".$this->db->lasterror(), LOG_ERR);
         } else {
             dol_syslog("modCabinetMedExtCons::migrateTo130 - custom_data expanded to MEDIUMTEXT", LOG_INFO);
+        }
+        
+        // 3. Migrar datos existentes de observaciones desde custom_data JSON
+        if (!$error) {
+            // Buscar todos los posibles nombres de campo que contengan "observ" en la config de campos dinámicos
+            $obs_field_names = array('observaciones', 'observaciones_generales', 'observacion');
+            $sql_fields = "SELECT DISTINCT field_name FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields WHERE field_name LIKE '%observ%'";
+            $res_fields = $this->db->query($sql_fields);
+            if ($res_fields) {
+                while ($fobj = $this->db->fetch_object($res_fields)) {
+                    if (!in_array($fobj->field_name, $obs_field_names)) {
+                        $obs_field_names[] = $fobj->field_name;
+                    }
+                }
+            }
+            
+            // Migrar cada variante encontrada
+            foreach ($obs_field_names as $fname) {
+                $sql = "UPDATE ".MAIN_DB_PREFIX."cabinetmed_extcons 
+                        SET observaciones = JSON_UNQUOTE(JSON_EXTRACT(custom_data, '$.".$this->db->escape($fname)."')),
+                            custom_data = JSON_REMOVE(custom_data, '$.".$this->db->escape($fname)."')
+                        WHERE custom_data IS NOT NULL AND custom_data != ''
+                          AND JSON_VALID(custom_data)
+                          AND JSON_EXTRACT(custom_data, '$.".$this->db->escape($fname)."') IS NOT NULL
+                          AND (observaciones IS NULL OR observaciones = '')";
+                $resql = $this->db->query($sql);
+                if ($resql) {
+                    $migrated = $this->db->affected_rows($resql);
+                    if ($migrated > 0) {
+                        dol_syslog("modCabinetMedExtCons::migrateTo130 - Migrated $migrated observaciones from JSON (field: $fname)", LOG_INFO);
+                    }
+                }
+            }
         }
         
         if ($error) {
@@ -349,6 +415,77 @@ class modCabinetMedExtCons extends DolibarrModules
         }
         
         return $error ? -1 : 1;
+    }
+    
+    /**
+     * Migración v1.3.2: Re-migración basada en PHP para registros que no fueron migrados
+     * Busca directamente en el JSON de custom_data cualquier clave que contenga "observ"
+     * sin depender de la tabla de campos configurados
+     */
+    private function migrateTo132()
+    {
+        dol_syslog("modCabinetMedExtCons::migrateTo132 - Starting PHP-based observaciones re-migration", LOG_INFO);
+        
+        // Asegurar que la columna observaciones existe (por si migrateTo130 no corrió antes)
+        if (!$this->columnExists('cabinetmed_extcons', 'observaciones')) {
+            $sql = "ALTER TABLE ".MAIN_DB_PREFIX."cabinetmed_extcons ADD COLUMN observaciones MEDIUMTEXT AFTER medicamentos";
+            $this->db->query($sql);
+        }
+        
+        // Asegurar que custom_data es MEDIUMTEXT
+        $sql = "ALTER TABLE ".MAIN_DB_PREFIX."cabinetmed_extcons MODIFY COLUMN custom_data MEDIUMTEXT";
+        $this->db->query($sql);
+        
+        // Buscar registros sin observaciones que tengan custom_data con algún campo "observ"
+        $sql = "SELECT rowid, custom_data FROM ".MAIN_DB_PREFIX."cabinetmed_extcons 
+                WHERE custom_data IS NOT NULL AND custom_data != ''
+                  AND (observaciones IS NULL OR observaciones = '')
+                  AND custom_data LIKE '%observ%'";
+        $resql = $this->db->query($sql);
+        
+        $migrated = 0;
+        $errors = 0;
+        
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $data = json_decode($obj->custom_data, true);
+                if (!is_array($data)) {
+                    dol_syslog("modCabinetMedExtCons::migrateTo132 - Row ".$obj->rowid.": invalid JSON, skipped", LOG_WARNING);
+                    continue;
+                }
+                
+                // Buscar cualquier clave que contenga "observ" (case-insensitive)
+                $obs_value = '';
+                $obs_key = '';
+                foreach ($data as $key => $value) {
+                    if (stripos($key, 'observ') !== false && !empty($value)) {
+                        $obs_value = $value;
+                        $obs_key = $key;
+                        break;
+                    }
+                }
+                
+                if (!empty($obs_value) && !empty($obs_key)) {
+                    // Remover la clave del JSON y actualizar
+                    unset($data[$obs_key]);
+                    $new_data = !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
+                    
+                    $sql_update = "UPDATE ".MAIN_DB_PREFIX."cabinetmed_extcons 
+                                   SET observaciones = '".$this->db->escape($obs_value)."',
+                                       custom_data = '".$this->db->escape($new_data)."'
+                                   WHERE rowid = ".intval($obj->rowid);
+                    if ($this->db->query($sql_update)) {
+                        $migrated++;
+                    } else {
+                        $errors++;
+                        dol_syslog("modCabinetMedExtCons::migrateTo132 - Error updating row ".$obj->rowid.": ".$this->db->lasterror(), LOG_ERR);
+                    }
+                }
+            }
+        }
+        
+        dol_syslog("modCabinetMedExtCons::migrateTo132 - Completed: $migrated migrated, $errors errors", LOG_INFO);
+        return $errors ? -1 : 1;
     }
     
     /**
