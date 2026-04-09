@@ -158,7 +158,7 @@
             }
 
             $object->note_private = GETPOST('note_private', 'restricthtml');
-            $object->note_public = GETPOST('note_public', 'restricthtml');
+            // note_public is read-only, keep existing value from fetch
             $object->status = GETPOST('status', 'int');
             
             // Recurrence fields
@@ -1008,14 +1008,16 @@ if ($action == 'edit' && $permtocreate) {
         }
     }
     
-    // Notes section (Siempre visible fuera del bucle)
-    print '<br>';
-    print '<table class="border centpercent">';
-    print '<tr class="liste_titre"><td colspan="2">'.$langs->trans("Notes").'</td></tr>';
-    print '<tr><td class="tdtop">'.$langs->trans("NotePublic").'</td><td>';
-    print '<textarea name="note_public" rows="3" class="flat quatrevingtpercent">'.dol_escape_htmltag($object->note_public, 1).'</textarea>';
-    print '</td></tr>';
-    print '</table>';
+    // Notes section (Siempre visible fuera del bucle - solo lectura)
+    if ($object->note_public) {
+        print '<br>';
+        print '<table class="border centpercent">';
+        print '<tr class="liste_titre"><td colspan="2">'.$langs->trans("Notes").'</td></tr>';
+        print '<tr><td class="tdtop">'.$langs->trans("NotePublic").'</td><td>';
+        print dol_htmlentitiesbr($object->note_public);
+        print '</td></tr>';
+        print '</table>';
+    }
     
     print '</div>'; // End dynamic sections // End dynamic sections
     

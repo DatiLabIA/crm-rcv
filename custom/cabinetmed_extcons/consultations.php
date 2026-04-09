@@ -127,7 +127,7 @@ if ($action == 'add' || $action == 'update') {
     $consultation->rx_num = GETPOST('rx_num', 'alpha');
     $consultation->medicamentos = GETPOST('medicamentos', 'restricthtml');
     $consultation->note_private = GETPOST('note_private', 'restricthtml');
-    $consultation->note_public = GETPOST('note_public', 'restricthtml');
+    // note_public is read-only, not assigned from POST
     
     // Recurrence fields
     $consultation->recurrence_enabled = GETPOST('recurrence_enabled', 'int') ? 1 : 0;
@@ -689,15 +689,17 @@ if ($val !== '') {
             }
         }
         
-        // Notes section (Siempre visible)
-        $f_note_public  = GETPOSTISSET('note_public')  ? GETPOST('note_public',  'restricthtml') : $consultation->note_public;
-        print '<br>';
-        print '<table class="border centpercent">';
-        print '<tr class="liste_titre"><td colspan="2">'.$langs->trans("Notes").'</td></tr>';
-        print '<tr><td class="tdtop">'.$langs->trans("NotePublic").'</td><td>';
-        print '<textarea name="note_public" rows="3" class="flat quatrevingtpercent">'.dol_escape_htmltag($f_note_public, 1).'</textarea>';
-        print '</td></tr>';
-        print '</table>';
+        // Notes section (Solo lectura)
+        $f_note_public = $consultation->note_public;
+        if ($f_note_public) {
+            print '<br>';
+            print '<table class="border centpercent">';
+            print '<tr class="liste_titre"><td colspan="2">'.$langs->trans("Notes").'</td></tr>';
+            print '<tr><td class="tdtop">'.$langs->trans("NotePublic").'</td><td>';
+            print dol_htmlentitiesbr($f_note_public);
+            print '</td></tr>';
+            print '</table>';
+        }
         
         print '</div>'; // End dynamic sections
         
