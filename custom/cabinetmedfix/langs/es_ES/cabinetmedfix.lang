@@ -1,0 +1,61 @@
+# Module CabinetMedFix language file - es_ES
+# Copyright (C) 2026 CRM-RCV
+
+CHARSET=UTF-8
+
+# Module label 'ModuleCabinetMedFixName'
+ModuleCabinetMedFixName = CabinetMed Fix
+# Module description 'ModuleCabinetMedFixDesc'
+ModuleCabinetMedFixDesc = Correcciones automáticas para el módulo CabinetMed
+
+#
+# Admin page
+#
+CabinetMedFixSetup = Configuración de CabinetMedFix
+CabinetMedFixAbout = Acerca de CabinetMedFix
+
+#
+# About page
+#
+CabinetMedFixAboutPage = Acerca de CabinetMedFix
+CabinetMedFixAboutDescLong = Este módulo corrige automáticamente dos problemas comunes en CabinetMed:
+CabinetMedFixAboutDesc1 = 1. URLs incorrectas que apuntan a /societe/card.php en lugar de /custom/cabinetmed/card.php
+CabinetMedFixAboutDesc2 = 2. Campo 'client' que se establece en 0 al editar pacientes (causando que desaparezcan de las listas)
+CabinetMedFixAboutDesc3 = El módulo es completamente independiente y sobrevivirá a todas las actualizaciones de Dolibarr y CabinetMed.
+CabinetMedFixAboutDesc4 = No modifica ningún archivo del core de Dolibarr ni del módulo CabinetMed original.
+
+#
+# Changelog - Historial de cambios
+#
+ChangelogTab = Historial cambios
+ChangelogTitle = Historial de cambios
+ChangelogModifySummary = Modificación de %s (%s campos cambiados)
+ChangelogDetailHeader = Cambios en: %s\nFecha: %s\nUsuario: %s
+ChangelogTotalRecords = Total: %s cambios registrados
+ChangelogLastChange = Último cambio: %s (%s campos)
+ChangelogNoRecords = No hay cambios registrados para este tercero
+ChangelogOldValue = Antes
+ChangelogNewValue = Después
+ChangelogFieldType = Tipo
+ChangelogFieldStandard = Estándar
+ChangelogFieldExtra = Personalizado
+ExportCSV = Exportar CSV
+Creation = Creación
+Modification = Modificación
+Deletion = Eliminación
+
+#
+# Dispensation / Inventory validations
+#
+DispensationNoReceptionForPatient = No existe una recepción/recolección registrada para este paciente con los siguientes medicamentos: %s
+DispensationSerialNotFromPatient = El serial %s del producto %s no fue recolectado para este paciente
+DispensationSerialAlreadyDispatched = El serial %s del producto %s ya fue dispensado anteriormente en el envío %s
+DispensationSerialNoStock = sin stock disponible
+DispensationPatientMarkedAsSupplier = Paciente %s marcado automáticamente como proveedor para gestión de recolecciones
+DispensationNoDefaultWarehouse = No se ha configurado un almacén predeterminado. Configure MAIN_DEFAULT_WAREHOUSE o cree al menos un almacén activo.
+DispensationAutoReceptionNote = Recepción creada automáticamente desde orden de compra %s
+DispensationAutoReceptionCreated = Recepción %s creada y validada automáticamente (stock actualizado)
+DispensationAutoExpeditionNote = Envío creado automáticamente desde orden de venta %s (recolección)
+DispensationAutoExpeditionCreated = Envío %s creado y validado automáticamente (stock descontado)
+DispensationAutoExpeditionDraft = Envío %s creado como borrador con el lote disponible — revísalo y valídalo manualmente para confirmar la salida de medicamento
+Unknown = desconocido

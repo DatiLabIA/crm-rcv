@@ -1,0 +1,84 @@
+# Gestion Module - English
+# Copyright (C) 2024 DatiLab
+
+# Module
+Module500006Name = Management
+Module500006Desc = Management module for PSP (Health Insurance, Doctors, Programs, etc.)
+
+# Menus
+GestionArea = Management Area
+Programas = Programs
+Diagnosticos = Diagnoses
+EPS = Health Insurance
+Medicamentos = Medications
+Medicos = Doctors
+Operadores = Operators
+
+# Permissions
+Permission500007 = Read Management records
+Permission500008 = Create/Modify Management records
+Permission500009 = Delete Management records
+
+# Common fields
+Name = Name
+Code = Code
+Description = Description
+Label = Label
+Ref = Reference
+Status = Status
+Active = Active
+Inactive = Inactive
+DateCreation = Creation date
+DateModification = Modification date
+QuickAccess = Quick access
+Statistics = Statistics
+
+# Programs
+NewPrograma = New Program
+EditPrograma = Edit Program
+ProgramaList = Programs List
+
+# Diagnoses
+NewDiagnostico = New Diagnosis
+EditDiagnostico = Edit Diagnosis
+DiagnosticoList = Diagnoses List
+CodigoCIE10 = ICD-10 Code
+
+# Health Insurance (EPS)
+NewEPS = New Health Insurance
+EditEPS = Edit Health Insurance
+EPSList = Health Insurance List
+EPSDescripcion = Health Insurance Description
+
+# Medications
+NewMedicamento = New Medication
+EditMedicamento = Edit Medication
+MedicamentoList = Medications List
+Concentracion = Concentration
+Concentraciones = Concentrations
+Unidad = Unit
+AddConcentracion = Add Concentration
+
+# Doctors
+NewMedico = New Doctor
+EditMedico = Edit Doctor
+MedicoList = Doctors List
+TipoDocumento = Document Type
+NumeroIdentificacion = ID Number
+TarjetaProfesional = Professional License
+Ciudad = City
+Departamento = State/Department
+Especialidad = Specialty
+
+# Operators
+NewOperador = New Operator
+EditOperador = Edit Operator
+OperadorList = Operators List
+
+# Messages
+RecordCreatedSuccessfully = Record created successfully
+RecordModifiedSuccessfully = Record modified successfully
+RecordDeleted = Record deleted
+ConfirmDeleteRecord = Are you sure you want to delete this record?
+NoRecordFound = No records found
+ErrorFieldRequired = Field %s is required

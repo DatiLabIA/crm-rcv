@@ -1,0 +1,92 @@
+# Spanish (Colombia) - RCV Analytics Module
+
+Dashboard=Dashboard
+Analiticas=Analíticas
+RcvAnalyticsDashboard=Analíticas - Dashboard
+PacientesAnaliticas=Analíticas - Pacientes
+ConsultasAnaliticas=Analíticas - Consultas
+AdherenciaAnaliticas=Analíticas - Adherencias
+
+# Menu
+Pacientes=Pacientes
+Consultas=Consultas
+Adherencias=Adherencias
+Exportar=Exportar datos
+
+# Filters
+Filtros=Filtros
+FechaDesde=Fecha desde
+FechaHasta=Fecha hasta
+FechaCreacionDesde=Creación desde
+FechaCreacionHasta=Creación hasta
+Filtrar=Filtrar
+LimpiarFiltros=Limpiar filtros
+AgruparPor=Agrupar por
+Todos=Todos
+
+# Field labels
+Medicamento=Medicamento
+EPS=EPS
+OperadorLogistico=Operador logístico
+TipoPoblacion=Tipo de población
+Programa=Programa
+Diagnostico=Diagnóstico
+IPSPrimaria=IPS primaria
+EstadoPaciente=Estado del paciente
+TipoAtencion=Tipo de atención
+MedicoTratante=Médico tratante
+NombrePaciente=Nombre
+FechaCreacion=Fecha creación
+Documento=N. Documento
+TipoDocumento=Tipo doc.
+TotalConsultas=Total consultas
+UltimaConsulta=Última consulta
+Regimen=Régimen
+Concentracion=Concentración
+SedeOperador=Sede operador
+TipoAfiliacion=Tipo afiliación
+Periodo=Período
+
+# KPIs
+TotalPacientes=Total pacientes
+TotalConsultas=Total consultas
+PacientesConConsulta=Pac. con consulta
+TotalAdherencias=Total adherencias
+PctCumplimiento=% Cumplimiento
+
+# Charts
+NuevosPacientesPorPeriodo=Nuevos pacientes por período
+ConsultasPorPeriodo=Consultas por período
+ConsultasPorTipoAtencion=Consultas por tipo de atención
+ConsultasPorEPS=Consultas por EPS
+ConsultasPorPrograma=Consultas por programa
+DistribucionAdherencia=Distribución de adherencia
+PacientesPorEPS=Pacientes por EPS
+PacientesPorMedicamento=Pacientes por medicamento
+PacientesPorOperador=Pacientes por operador logístico
+AdherenciaEnElTiempo=Adherencias en el tiempo
+RazonesIncumplimiento=Razones de incumplimiento
+RazonesIncumplimientoDetalle=Detalle de razones de incumplimiento
+AdherenciaPorEPS=Adherencias por EPS (tabla cruzada)
+ConsultasPorTipoYPeriodo=Consultas por tipo y período
+
+# Actions
+AccionesDeLista=Acciones rápidas
+VerTablasPacientes=Ver tabla de pacientes
+VerTablasConsultas=Ver tabla de consultas
+AdherenciaDetallada=Adherencia detallada
+ExportarCSV=Exportar CSV
+Volver=Volver al dashboard
+
+# Export
+TipoExportacion=Tipo de exportación
+ExportarPacientes=Pacientes (todos los datos)
+ExportarConsultas=Consultas por tipo de atención
+ExportarAdherencia=Distribución de adherencia
+DescargarCSV=Descargar CSV
+
+# Pagination
+Total=Total
+Pagina=Página
+Anterior=Anterior
+Siguiente=Siguiente

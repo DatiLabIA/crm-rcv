@@ -1,0 +1,6 @@
+# MedTriggers - Español
+Module600100Name = MedTriggers
+Module600100Desc = Módulo para mostrar/ocultar campos condicionales
+MedTriggersSetup = Configuración de MedTriggers
+MedTriggersFieldConfig = Configuración de campos condicionales
+MedTriggersFieldConfigHelp = Formato: trigger:dependiente1,dependiente2

@@ -1,0 +1,23 @@
+# ===========================================
+# Ignorar TODO excepto custom/ y .github/
+# ===========================================
+
+# Ignorar todo por defecto
+/*
+
+# Permitir estas carpetas
+!custom/
+!.github/
+!.gitignore
+
+# Dentro de custom/, ignorar el módulo cabinetmed original (es de terceros)
+custom/cabinetmed/
+
+# Ignorar archivos temporales y backups
+*.zip
+*.bak
+*.tmp
+*.swp
+*.log
+Thumbs.db
+.DS_Store

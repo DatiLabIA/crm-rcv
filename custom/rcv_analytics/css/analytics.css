@@ -1,0 +1,28 @@
+/* RCV Analytics - CSS complementario v2
+ * Los estilos principales están en rcv_print_inline_styles().
+ * Este archivo solo añade estilos que no se definen inline.
+ */
+
+/* KPI icon */
+.rcv-kpi-icon { font-size: 1.3em; margin-bottom: 4px; opacity: .7; }
+
+/* Print */
+@media print {
+    .rcv-filters,
+    .rcv-filter-actions { display: none !important; }
+    .rcv-chart-box { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+    .rcv-table-wrapper { overflow: visible; border: none; }
+    .rcv-table-wrapper table { font-size: .75em; }
+}
+    font-size: .9em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rcv-chart-box {
+        max-width: 100%;
+    }
+    .rcv-kpi-card {
+        min-width: 130px;
+    }
+}

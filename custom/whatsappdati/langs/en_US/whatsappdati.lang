@@ -1,0 +1,544 @@
+# Copyright (C) 2024 DatiLab
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+#
+# Generic
+#
+
+# Module label 'ModuleWhatsAppDatiName'
+ModuleWhatsAppDatiName = WhatsApp Business
+# Module description 'ModuleWhatsAppDatiDesc'
+ModuleWhatsAppDatiDesc = WhatsApp Business Integration for Dolibarr
+
+#
+# Admin page
+#
+WhatsAppDatiSetup = WhatsApp Business Setup
+WhatsAppDatiSetupPage = WhatsApp module configuration page
+Settings = Settings
+WhatsAppDatiAbout = About WhatsApp Business
+
+# Configuration
+MetaAPIConfiguration = Meta API Configuration
+PhoneNumberID = Phone Number ID
+BusinessAccountID = Business Account ID
+AccessToken = Access Token
+WebhookVerifyToken = Webhook Verify Token
+WebhookURL = Webhook URL
+AppID = App ID (Facebook)
+AppIDHelp = App ID from Facebook Developers (Meta App Dashboard → Settings → Basic → App ID). You can save the line even if the app is in development mode — the webhook URL will be generated on save and you can configure it in Meta Developers afterward.
+AppIDChickenEggNotice = 💡 App not public yet? Save the line first to get the webhook URL. Then set it in Meta Developers (WhatsApp → Configuration → Webhook) and publish the app. App validation is a warning only and does not block saving.
+AppSecret = App Secret
+AppSecretHelp = Required to verify webhook signature (X-Hub-Signature-256). Found in Meta App Dashboard → Settings → Basic.
+SaveConfiguration = Save Configuration
+TestConnection = Test Connection
+CountryCode = Country Code
+CountryCodeHelp = Default country code for phone numbers (e.g. 57 for Colombia, 34 for Spain)
+
+# Conversations
+Conversations = Conversations
+NewConversation = New Conversation
+ActiveConversations = Active Conversations
+ArchivedConversations = Archived Conversations
+ConversationWith = Conversation with
+AssignedTo = Assigned to
+UnassignedConversation = Unassigned
+MarkAsRead = Mark as read
+ArchiveConversation = Archive conversation
+AssignToAgent = Assign to agent
+SelectConversation = Select a conversation
+Loading = Loading
+
+# Messages
+Messages = Messages
+SendMessage = Send Message
+TypeYourMessage = Type your message...
+Send = Send
+Sent = Sent
+Delivered = Delivered
+Read = Read
+Failed = Failed
+MessageSent = Message sent successfully
+MessageFailed = Error sending message
+MessageWindowExpired = The 24-hour window has expired. Use a template to start the conversation.
+
+# Media / Multimedia
+AttachFile = Attach file
+InsertEmoji = Insert emoji
+SearchEmoji = Search emoji...
+AddCaption = Add a caption...
+Image = Image
+Video = Video
+Audio = Audio
+Document = Document
+Download = Download
+DropFileHere = Drop file here
+FileTooBig = File too large
+UnsupportedFileType = Unsupported file type
+UploadFailed = Upload failed
+VoiceMessage = Voice message
+VoiceNote = Voice note
+
+# Templates
+Templates = Templates
+NewTemplate = New Template
+TemplateID = Template ID (Meta)
+TemplateName = Template Name
+SelectLine = Select line
+TemplateLanguage = Language
+TemplateCategory = Category
+TemplateStatus = Status
+TemplateBody = Message Body
+TemplateHeader = Header
+TemplateFooter = Footer
+TemplateButtons = Buttons
+SyncTemplates = Sync Templates
+UseTemplate = Use Template
+TemplateVariables = Variables
+SendWithTemplate = Send with Template
+SelectTemplate = Select template
+Cancel = Cancel
+Sending = Sending...
+ValueForVariable = Value for
+NoVariables = This template has no variables.
+PreviewTemplate = Preview
+EditTemplate = Edit Template
+TemplateCreated = Template created successfully
+TemplateUpdated = Template updated successfully
+TemplateDeleted = Template deleted successfully
+TemplateSentToMeta = Template sent to Meta for review
+ErrorPushingToMeta = Error pushing template to Meta
+SendToMeta = Send to Meta
+ManagedByMeta = Managed by Meta
+draft = Draft
+ConfirmDeleteTemplate = Are you sure you want to delete this template?
+TemplateHeaderType = Header Type
+TemplateHeaderContent = Header Content
+TemplateBodyHelp = Use {{1}}, {{2}}, etc. to insert dynamic variables.
+HeaderTypeNone = No header
+HeaderTypeText = Text
+HeaderTypeImage = Image
+HeaderTypeVideo = Video
+HeaderTypeDocument = Document
+ErrorTemplateNameRequired = Template name is required
+ErrorTemplateBodyRequired = Template body is required
+ErrorTemplateLanguageRequired = Template language is required
+
+# Categories
+MARKETING = Marketing
+UTILITY = Utility
+AUTHENTICATION = Authentication
+
+# Status
+pending = Pending
+approved = Approved
+rejected = Rejected
+active = Active
+archived = Archived
+closed = Closed
+
+# Permissions
+Permission500000 = Read WhatsApp conversations
+Permission500001 = Send WhatsApp messages
+Permission500002 = Manage WhatsApp templates
+Permission500003 = Configure WhatsApp module
+
+# Errors
+ErrorPhoneNumberIDRequired = Phone Number ID is required
+ErrorBusinessAccountIDRequired = Business Account ID is required
+ErrorAccessTokenRequired = Access Token is required
+ErrorWebhookVerifyTokenRequired = Webhook Verify Token is required
+ErrorSavingConfiguration = Error saving configuration
+ErrorTestingConnection = Error testing connection
+ErrorNoActiveConversation = No active conversation
+ErrorMessageEmpty = Message cannot be empty
+ErrorTemplateNotFound = Template not found
+ErrorSyncingTemplates = Error syncing templates
+ErrorPhoneRequired = Phone number is required
+ErrorTemplateRequired = Template is required
+
+# Success messages
+ConfigurationSaved = Configuration saved successfully
+ConnectionSuccessful = Connection successful with Meta API
+TemplatesSynced = Templates synchronized successfully
+ConversationAssigned = Conversation assigned successfully
+
+# Integration
+SendWhatsApp = Send WhatsApp
+SendWhatsAppMessage = Send WhatsApp message
+SearchRecipient = Search recipient
+SearchContactOrPhone = Search by name, phone or company...
+OrEnterPhone = Or enter phone manually
+PhoneNumber = Phone number
+ContactName = Contact name
+Optional = optional
+StartConversation = Start Conversation
+SelectRecipientOrPhone = Select a recipient or enter a phone number
+NoResultsFound = No results found
+Searching = Searching
+Sending = Sending...
+
+# Bulk Send
+BulkSend = Bulk Send
+NewBulkSend = New Bulk Send
+BulkSendHistory = Send History
+Step1SelectTemplate = Step 1: Select Template
+Step2SelectRecipients = Step 2: Select Recipients
+Step3ConfirmAndSend = Step 3: Confirm and Send
+SearchRecipients = Search contacts by name or phone...
+Search = Search
+SelectAll = Select all
+Recipients = Recipients
+StartBulkSend = Start Bulk Send
+BulkSendProgress = Send Progress
+BulkPending = Pending
+CancelPending = Cancel Pending
+ViewHistory = View History
+BatchID = Batch ID
+Total = Total
+DateCreation = Date Created
+Actions = Actions
+BatchCancelled = Batch cancelled (%s items)
+ErrorNoRecipients = You must select at least one recipient
+ProcessWhatsAppQueue = Process WhatsApp message queue
+
+# Assignment
+AssignmentConfiguration = Assignment Configuration
+AssignmentMode = Assignment Mode
+AssignDisabled = Disabled
+AssignRoundRobin = Round Robin (rotation)
+AssignLeastActive = Least Active
+AssignManualOnly = Manual Only
+AssignmentModeHelp = Method for automatically assigning new conversations to agents
+AssignAgents = Available Agents
+AssignAgentsHelp = Select users who will act as WhatsApp agents
+NoUsersFound = No users found
+AgentStats = Agent Statistics
+ActiveConversations = Active Conversations
+TotalConversations = Total Conversations
+Unassigned = Unassigned
+Agent = Agent
+
+# Tags / Labels
+Tags = Tags
+AddTag = Add tag
+CreateTag = Create tag
+SearchOrCreateTag = Search or create tag...
+AllConversations = All conversations
+TagLabel = Name
+TagColor = Color
+TagDescription = Description
+TagUsage = Usage
+ManageTags = Manage Tags
+TagConfiguration = Tag Configuration
+NoTagsYet = No tags created yet
+ErrorTagLabelRequired = Tag name is required
+ErrorTagAlreadyExists = A tag with that name already exists
+TagCreated = Tag created successfully
+TagDeleted = Tag deleted successfully
+ConfirmDeleteTag = Are you sure you want to delete this tag? It will be unlinked from all conversations.
+
+# Quick Replies
+QuickReplies = Quick Replies
+QuickReplyConfiguration = Quick Reply Configuration
+QuickReplyShortcut = Shortcut
+QuickReplyShortcutPlaceholder = /greeting
+QuickReplyTitle = Title
+QuickReplyContent = Content
+QuickReplyContentPlaceholder = Type the quick reply text...
+QuickReplyCategory = Category
+SearchQuickReplies = Search quick replies...
+CreateQuickReply = Create Quick Reply
+NoQuickRepliesYet = No quick replies created yet
+QuickReplyCreated = Quick reply created successfully
+QuickReplyDeleted = Quick reply deleted successfully
+ConfirmDeleteQuickReply = Are you sure you want to delete this quick reply?
+ErrorShortcutRequired = Shortcut is required
+ErrorTitleRequired = Title is required
+ErrorContentRequired = Content is required
+
+# Real-time / SSE
+RealtimeConfiguration = Real-time Configuration
+RealtimeMode = Update Mode
+RealtimePolling = Polling (periodic query every 10s)
+RealtimeSSE = Server-Sent Events (real-time)
+RealtimeModeHelp = SSE keeps an open connection for instant updates. Polling queries the server every 10 seconds. If SSE fails, polling is used automatically as fallback.
+RateLimitMs = Rate limit between sends
+RateLimitMsHelp = Pause in milliseconds between each message sent in bulk and scheduled processes. Minimum 50ms (~20/sec), maximum 5000ms. Meta recommends not exceeding 80 messages/second.
+ConnectionStatus = Connection Status
+Connected = Connected
+Connecting = Connecting
+Reconnecting = Reconnecting
+Disconnected = Disconnected
+
+#
+# Chatbot / Auto-replies
+#
+ChatbotTitle = Chatbot - Auto Replies
+ChatbotAddRule = Add Rule
+ChatbotEditRule = Edit Rule
+ChatbotRuleName = Rule Name
+ChatbotTriggerType = Trigger Type
+ChatbotTriggerValue = Trigger Value
+ChatbotTriggerValueHelp = Keyword or pattern to match
+ChatbotResponseType = Response Type
+ChatbotResponse = Response
+ChatbotResponseText = Text
+ChatbotResponseTemplate = Template
+ChatbotResponseTextLabel = Response Text
+ChatbotVariablesHelp = Available variables: {contact_name}, {phone}, {date}, {time}
+ChatbotTemplateName = Template Name
+ChatbotCondition = Condition
+ChatbotCondAlways = Always
+ChatbotCondOutsideHours = Outside work hours
+ChatbotCondUnassigned = Unassigned conversation
+ChatbotWorkHours = Work Hours
+ChatbotDelay = Delay (sec)
+ChatbotMaxTriggers = Max Triggers
+ChatbotMaxTriggersHelp = 0 = unlimited per conversation
+ChatbotStopOnMatch = Stop on match
+ChatbotStopOnMatchHelp = If active, lower-priority rules will not be evaluated
+ChatbotStats = Statistics
+ChatbotNoRules = No rules configured. Click "Add Rule" to create the first one.
+ChatbotConfirmDelete = Delete this rule?
+ChatbotTestMessage = Test Message
+ChatbotTestInput = Test Message
+ChatbotTestPlaceholder = Type a message to test the rules...
+ChatbotTestNewConv = Simulate new conversation
+ChatbotRunTest = Run Test
+ChatbotTestNoMatch = No rules matched this message.
+ChatbotTestMatched = Matching rules
+ChatbotEnabled = Chatbot enabled
+ChatbotDisabled = Chatbot disabled
+EnableChatbot = Enable Chatbot
+DisableChatbot = Disable Chatbot
+ChatbotTriggerExact = Exact match
+ChatbotTriggerContains = Contains
+ChatbotTriggerStartsWith = Starts with
+ChatbotTriggerRegex = Regular expression
+ChatbotTriggerDefault = Default
+ChatbotTriggerNewConv = New conversation
+ChatbotTriggerContainsHelp = Separate multiple keywords with commas (any match triggers)
+ChatbotTriggerExactHelp = Message must match exactly (case-insensitive)
+ChatbotTriggerStartsWithHelp = Message must start with this text
+ChatbotTriggerRegexHelp = PHP regular expression (e.g. /hello|good morning/i)
+ChatbotMenu = Chatbot
+
+# ========================
+# Message Scheduling
+# ========================
+ScheduleTitle = Scheduled Messages
+ScheduleMenu = Scheduling
+ScheduleNewMessage = New Scheduled Message
+ScheduleEditMessage = Edit Scheduled Message
+SchedulePending = Pending
+ScheduleSent = Sent
+ScheduleFailed = Failed
+ScheduleRecurring = Recurring
+SchedulePaused = Paused
+ScheduleNoMessages = No scheduled messages. Click "New Scheduled Message" to create one.
+ScheduleRecipient = Recipient
+ScheduleMessageType = Message Type
+ScheduleContent = Content
+ScheduleDate = Scheduled Date
+ScheduleDateTime = Scheduling
+ScheduleRecurrence = Recurrence
+ScheduleNextExec = Next Execution
+ScheduleExecCount = Sends
+ScheduleOnce = Once
+ScheduleDaily = Daily
+ScheduleWeekly = Weekly
+ScheduleMonthly = Monthly
+ScheduleRecurrenceEnd = Recurrence End Date
+ScheduleRecurrenceEndHelp = Leave empty for unlimited recurrence
+ScheduleMsgText = Free text
+ScheduleMsgTemplate = WhatsApp Template
+ScheduleTemplate = Template
+ScheduleTextHelp = Note: text messages can only be sent within WhatsApp's 24h window
+ScheduleNoteHelp = Optional internal note to identify this message
+ScheduleSendNow = Send Now
+SchedulePause = Pause
+ScheduleResume = Resume
+ScheduleConfirmDelete = Delete this scheduled message?
+ScheduleConfirmCancel = Cancel this scheduled message?
+ScheduleConfirmSendNow = Send this message immediately?
+ScheduleSentSuccess = Message sent successfully
+ErrorPhoneRequired = Phone number is required
+ErrorScheduledDateRequired = Scheduled date is required
+ErrorMessageContentRequired = Message content is required
+ProcessWhatsAppScheduled = Process scheduled WhatsApp messages
+
+# ========================
+# CRM Integration
+# ========================
+CrmLink = Link Third Party
+CrmLinkThirdParty = Link to Third Party
+CrmUnlink = Unlink third party
+CrmCreateLead = Create Lead
+CrmLead = Lead
+CrmSearchPlaceholder = Search third party by name, phone, email...
+CrmSearchHelp = Search in Dolibarr third parties and contacts. Minimum 2 characters.
+CrmCreateNewThirdParty = Or create new third party
+CrmClientType = Client type
+CrmCreateAndLink = Create and Link
+CrmLinkedSuccess = Third party linked successfully
+CrmUnlinkedSuccess = Third party unlinked
+CrmThirdPartyCreated = Third party created and linked successfully
+CrmLeadTitle = Lead Title
+CrmOppAmount = Opportunity Amount
+CrmOppPercent = Probability %%
+CrmLeadFromWhatsApp = Lead generated from WhatsApp conversation %s
+CrmLeadCreated = Lead/Opportunity created successfully
+CrmLinkThirdPartyFirst = You must first link the conversation to a third party
+CrmProjectModuleRequired = The Projects/Opportunities module must be enabled
+ContactOf = Contact of
+
+#
+# Multi-Line
+#
+AllLines = All lines
+Mine = Mine
+ShowOnlyMine = Show only my conversations
+WhatsAppLine = WhatsApp Line
+WhatsAppLines = WhatsApp Lines
+LineLabel = Line label
+LineLabelPlaceholder = E.g.: Sales, Support, Main
+AddNewLine = Add new line
+EditLine = Edit line
+CreateLine = Create line
+UpdateLine = Update line
+LineDeleted = Line deleted successfully
+LineCreated = Line created successfully
+LineUpdated = Line updated successfully
+ConfirmDeleteLine = Are you sure you want to delete this line? Associated configurations will be lost.
+NoLinesConfigured = No lines configured. Add a line to get started.
+DefaultAgent = Default agent
+DefaultAgentHelp = Agent automatically assigned to incoming messages from this line
+AutoAssign = Auto-assign
+WebhookURLHelp = URL to configure in Meta to receive webhooks for this line
+GlobalSettings = Global Settings
+Line = Line
+Active = Active
+Inactive = Inactive
+CountryCodeHelp = Default country code for this line (e.g.: 57, 34)
+TestLine = Test line
+DeleteLine = Delete line
+
+# ========================
+# JS UI Strings (voice messages)
+# ========================
+JsVoiceMessage = Voice message
+JsRecording = Recording...
+JsMicNotAllowed = Microphone access was denied. Please allow it in your browser settings.
+JsMicNotSupported = Your browser does not support audio recording.
+JsVoiceRecording = 🎤 Voice note
+JsVoiceTooShort = Recording is too short. Hold for at least 1 second.
+JsSendingVoice = Sending...
+JsNoTemplatesAvailable = No approved templates available
+
+#
+# Conversation filters & actions
+#
+Unread = Unread
+ShowOnlyUnread = Show only unread conversations
+AssignToMe = Assign to me
+ManageAgents = Manage assigned agents
+AddAgent = Add agent
+RemoveAgent = Remove agent
+LineAgentsHelp = Select the agents that will handle this line. All new conversations will be assigned to these agents.
+WindowExpiresIn = Window expires in
+LoadMoreMessages = Load older messages
+ClaimConversation = Claim conversation
+ClaimConversationConfirm = Do you want to claim this conversation? Other agents will no longer see it.
+ConversationClaimed = Conversation claimed successfully
+
+# --- Template editor modern UI ---
+BasicInfo = Basic Information
+TemplateBasicInfoDesc = Name, language, category and line
+TemplateHeaderDesc = Image, video, document or text
+TemplateBodyDesc = Main message with variables
+TemplateFooterDesc = Secondary text below the message
+TemplateButtonsDesc = Interactive action buttons
+TemplateNameHelp = Lowercase letters, numbers and underscores only. E.g: welcome_customer
+TemplateBodyPlaceholder = Hello {{1}}, your order {{2}} is ready.
+TemplateFooterPlaceholder = Do not reply to this number
+HeaderTextPlaceholder = Header text (max. 60 chars)
+TemplateHeaderTextHelp = Maximum 60 characters. Can include variables {{1}}
+TemplateHeaderMediaHelp = Media file is sent at the time of sending, it is not stored in the template
+TemplateFooterHelp = Maximum 60 characters. No variables allowed
+TemplateButtonsHelp = Maximum 10 buttons per template. Types: Quick reply, URL or Phone
+InsertVariable = Insert variable
+DetectedVariables = Detected variables
+BtnTypeQuickReply = Quick reply
+BtnTypeUrl = URL link
+BtnTypePhone = Phone number
+ButtonText = Button text
+NoButtonsYet = No buttons added yet
+MaxButtonsReached = Maximum buttons reached (10)
+PreviewNote = Live preview
+
+# --- Template editor modern UI ---
+BasicInfo = Basic Information
+TemplateBasicInfoDesc = Name, language, category and line
+TemplateHeaderDesc = Image, video, document or text
+TemplateBodyDesc = Main message with variables
+TemplateFooterDesc = Secondary text below the message
+TemplateButtonsDesc = Interactive action buttons
+TemplateNameHelp = Lowercase letters, numbers and underscores only
+TemplateBodyPlaceholder = Hello {{1}}, your order {{2}} is ready.
+TemplateFooterPlaceholder = Do not reply to this number
+HeaderTextPlaceholder = Header text (max. 60 chars)
+TemplateHeaderTextHelp = Maximum 60 characters. Can include variables {{1}}
+TemplateHeaderMediaHelp = Media file is sent at time of sending, not stored in template
+TemplateFooterHelp = Maximum 60 characters. No variables allowed
+TemplateButtonsHelp = Maximum 10 buttons per template. Types: Quick reply, URL or Phone
+InsertVariable = Insert variable
+DetectedVariables = Detected variables
+BtnTypeQuickReply = Quick reply
+BtnTypeUrl = URL link
+BtnTypePhone = Phone number
+ButtonText = Button text
+NoButtonsYet = No buttons added yet
+MaxButtonsReached = Maximum buttons reached (10)
+PreviewNote = Live preview
+
+# Variable Configuration
+VariableConfiguration = Variable Configuration
+VariableConfigurationDesc = Assign automatic sources to each variable
+VariableConfigurationHelp = Configure how each variable will be filled automatically when sending. 'Free text' and 'URL' types will be requested at send time.
+NoVariablesDetected = No variables detected in message body. Add variables like {{1}}, {{2}}, etc.
+VarTypeContactName = Contact name
+VarTypeOperatorName = Operator name
+VarTypeCompanyName = Company name
+VarTypePhone = Phone
+VarTypeDateToday = Today's date
+VarTypeFreeText = Free text
+VarTypeUrl = URL
+VarTypeFixedText = Fixed text
+VarLabel = Descriptive label
+VarDefaultValue = Default value
+AutoResolved = Auto-resolved
+Auto = Auto
+
+# Header Image Mode
+HeaderImageMode = Header image mode
+HeaderImageOnSend = Upload image when sending
+HeaderImageOnTemplate = Upload image on template
+HeaderImageModeHelp = Choose whether to upload the image when creating the template or when sending the message
+HeaderMediaFile = Header media file
+CurrentMedia = Current file
+TemplateHeaderMediaOnSendHelp = Media file will be selected when sending the message
+HeaderImage = Header image
+HeaderImageOnSendHelp = Select an image to send as the message header
+HeaderSampleImage = Sample image (for Meta approval)
+HeaderSampleImageSet = Sample image uploaded
+HeaderSampleImageHelp = Meta requires a sample image to approve templates with image headers. This image is only for review — any image can be used when actually sending messages.

@@ -1,0 +1,90 @@
+# English - RCV Analytics Module
+
+Dashboard=Dashboard
+Analiticas=Analytics
+RcvAnalyticsDashboard=Analytics - Dashboard
+PacientesAnaliticas=Analytics - Patients
+ConsultasAnaliticas=Analytics - Consultations
+AdherenciaAnaliticas=Analytics - Adherence
+
+# Menu
+Pacientes=Patients
+Consultas=Consultations
+Adherencias=Adherence
+Exportar=Export data
+
+# Filters
+Filtros=Filters
+FechaDesde=From date
+FechaHasta=To date
+FechaCreacionDesde=Created from
+FechaCreacionHasta=Created to
+Filtrar=Filter
+LimpiarFiltros=Clear filters
+AgruparPor=Group by
+Todos=All
+
+# Field labels
+Medicamento=Medication
+EPS=Health insurance (EPS)
+OperadorLogistico=Logistics operator
+TipoPoblacion=Population type
+Programa=Program
+Diagnostico=Diagnosis
+IPSPrimaria=Primary IPS
+EstadoPaciente=Patient status
+TipoAtencion=Care type
+MedicoTratante=Treating physician
+NombrePaciente=Name
+FechaCreacion=Creation date
+Documento=ID number
+TipoDocumento=ID type
+TotalConsultas=Total consultations
+UltimaConsulta=Last consultation
+Regimen=Regimen
+Concentracion=Concentration
+SedeOperador=Operator branch
+TipoAfiliacion=Affiliation type
+Periodo=Period
+
+# KPIs
+TotalPacientes=Total patients
+TotalConsultas=Total consultations
+PacientesConConsulta=Patients w/ consult
+TotalAdherencias=Total adherence sessions
+PctCumplimiento=% Compliance
+
+# Charts
+NuevosPacientesPorPeriodo=New patients per period
+ConsultasPorPeriodo=Consultations per period
+ConsultasPorTipoAtencion=Consultations by care type
+DistribucionAdherencia=Adherence distribution
+PacientesPorEPS=Patients by EPS
+PacientesPorMedicamento=Patients by medication
+PacientesPorOperador=Patients by logistics operator
+AdherenciaEnElTiempo=Adherence over time
+RazonesIncumplimiento=Non-compliance reasons
+RazonesIncumplimientoDetalle=Non-compliance reasons detail
+AdherenciaPorEPS=Adherence by EPS (cross table)
+ConsultasPorTipoYPeriodo=Consultations by type and period
+
+# Actions
+AccionesDeLista=Quick actions
+VerTablasPacientes=View patients table
+VerTablasConsultas=View consultations table
+AdherenciaDetallada=Adherence detail
+ExportarCSV=Export CSV
+Volver=Back to dashboard
+
+# Export
+TipoExportacion=Export type
+ExportarPacientes=Patients (all data)
+ExportarConsultas=Consultations by care type
+ExportarAdherencia=Adherence distribution
+DescargarCSV=Download CSV
+
+# Pagination
+Total=Total
+Pagina=Page
+Anterior=Previous
+Siguiente=Next

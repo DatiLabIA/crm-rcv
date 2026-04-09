@@ -1,0 +1,4 @@
+-- Copyright (C) 2026 CRM-RCV
+--
+-- Claves e índices adicionales para llx_cabinetmedfix_doc_labels
+-- (Los índices principales están en el archivo .sql principal)

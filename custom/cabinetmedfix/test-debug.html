@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test CabinetMedFix</title>
+</head>
+<body>
+    <h1>Test de diagnóstico</h1>
+    <p>Abre la consola (F12) y pega estos comandos uno por uno:</p>
+    
+    <pre>
+// 1. Verificar si jQuery está disponible
+console.log('jQuery version:', typeof jQuery !== 'undefined' ? jQuery.fn.jquery : 'NO DISPONIBLE');
+
+// 2. Buscar el script cargado
+var scripts = document.querySelectorAll('script[src*="fix-patient-urls"]');
+console.log('Scripts encontrados:', scripts.length);
+scripts.forEach(function(s) { console.log('  - ' + s.src); });
+
+// 3. Verificar si el CSS está inyectado
+var injectedCSS = document.getElementById('cabinetmedfix-responsive-css');
+console.log('CSS inyectado:', injectedCSS ? 'SÍ' : 'NO');
+
+// 4. Contar columnas en la tabla
+var table = document.querySelector('table.liste');
+if (table) {
+    var cols = table.querySelectorAll('thead th').length;
+    console.log('Columnas en la tabla:', cols);
+} else {
+    console.log('No se encontró tabla.liste');
+}
+
+// 5. Verificar si la clase está aplicada
+var wrapper = document.querySelector('.cabinetmed-patients-list');
+console.log('Wrapper con clase aplicada:', wrapper ? 'SÍ' : 'NO');
+    </pre>
+    
+    <h2>Instrucciones:</h2>
+    <ol>
+        <li>Ve al listado de pacientes en Dolibarr</li>
+        <li>Abre la consola (F12)</li>
+        <li>Copia y pega TODO el código de arriba</li>
+        <li>Envía los resultados</li>
+    </ol>
+</body>
+</html>

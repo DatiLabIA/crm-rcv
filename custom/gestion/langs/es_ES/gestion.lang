@@ -1,0 +1,84 @@
+# Módulo Gestión - Español (Colombia)
+# Copyright (C) 2024 DatiLab
+
+# Módulo
+Module500006Name = Gestión
+Module500006Desc = Módulo de Gestión para PSP (EPS, Médicos, Programas, etc.)
+
+# Menús
+GestionArea = Área de Gestión
+Programas = Programas
+Diagnosticos = Diagnósticos
+EPS = EPS
+Medicamentos = Medicamentos
+Medicos = Médicos
+Operadores = Operadores
+
+# Permisos
+Permission500007 = Leer registros de Gestión
+Permission500008 = Crear/Modificar registros de Gestión
+Permission500009 = Eliminar registros de Gestión
+
+# Campos comunes
+Name = Nombre
+Code = Código
+Description = Descripción
+Label = Etiqueta
+Ref = Referencia
+Status = Estado
+Active = Activo
+Inactive = Inactivo
+DateCreation = Fecha de creación
+DateModification = Fecha de modificación
+QuickAccess = Acceso rápido
+Statistics = Estadísticas
+
+# Programas
+NewPrograma = Nuevo Programa
+EditPrograma = Editar Programa
+ProgramaList = Lista de Programas
+
+# Diagnósticos
+NewDiagnostico = Nuevo Diagnóstico
+EditDiagnostico = Editar Diagnóstico
+DiagnosticoList = Lista de Diagnósticos
+CodigoCIE10 = Código CIE-10
+
+# EPS
+NewEPS = Nueva EPS
+EditEPS = Editar EPS
+EPSList = Lista de EPS
+EPSDescripcion = Descripción de la EPS
+
+# Medicamentos
+NewMedicamento = Nuevo Medicamento
+EditMedicamento = Editar Medicamento
+MedicamentoList = Lista de Medicamentos
+Concentracion = Concentración
+Concentraciones = Concentraciones
+Unidad = Unidad
+AddConcentracion = Agregar Concentración
+
+# Médicos
+NewMedico = Nuevo Médico
+EditMedico = Editar Médico
+MedicoList = Lista de Médicos
+TipoDocumento = Tipo de Documento
+NumeroIdentificacion = Número de Identificación
+TarjetaProfesional = Tarjeta Profesional
+Ciudad = Ciudad
+Departamento = Departamento
+Especialidad = Especialidad
+
+# Operadores
+NewOperador = Nuevo Operador
+EditOperador = Editar Operador
+OperadorList = Lista de Operadores
+
+# Mensajes
+RecordCreatedSuccessfully = Registro creado correctamente
+RecordModifiedSuccessfully = Registro modificado correctamente
+RecordDeleted = Registro eliminado
+ConfirmDeleteRecord = ¿Está seguro de eliminar este registro?
+NoRecordFound = No se encontraron registros
+ErrorFieldRequired = El campo %s es obligatorio
