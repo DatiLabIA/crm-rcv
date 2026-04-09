@@ -9,8 +9,8 @@ Este es un sistema CRM médico basado en **Dolibarr 21.x** con el módulo **Doli
 - **No hay entorno local.** El proyecto NO corre localmente, no hay servidor PHP ni base de datos en la máquina de desarrollo.
 - Los cambios se suben manualmente por **FTP** al servidor de producción para probarlos.
 - **No ejecutar comandos PHP, Composer, ni scripts de servidor** en la terminal — no funcionarán.
-- **No se usa Git.** El proyecto no tiene repositorio git. Para comparar archivos usar `fc` o `Compare-Object` en PowerShell, o leer ambos archivos directamente con las herramientas de edición.
-- Las tareas válidas en terminal se limitan a: operaciones de archivos (copiar, mover, renombrar) y herramientas de edición.
+- **Git:** El repositorio está en `https://github.com/DatiLabIA/crm-rcv` (privado). Solo se versiona `custom/` y `.github/` — el core de Dolibarr está excluido vía `.gitignore`.
+- Las tareas válidas en terminal se limitan a: operaciones de archivos (copiar, mover, renombrar), herramientas de edición y comandos Git.
 - Para probar SQL, se debe hacer directamente en el servidor (phpMyAdmin u otra herramienta remota).
 
 ## Zona de trabajo
