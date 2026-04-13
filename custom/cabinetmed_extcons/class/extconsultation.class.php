@@ -872,6 +872,15 @@ class ExtConsultation extends CommonObject
                 }
             }
             
+            // HTML editor fields (DolEditor/CKEditor): cf_html_FIELDNAME
+            if (preg_match('/^cf_html_(.+)$/', $key, $matches)) {
+                $field_name = $matches[1];
+                $html_content = GETPOST('cf_html_'.$field_name, 'restricthtml');
+                if ($html_content !== '' && $html_content !== null) {
+                    $custom_fields[$field_name] = $html_content;
+                }
+            }
+            
             // Image-textarea fields: cf_imgtext_FIELDNAME
             // El input hidden arranca vacío; JS lo rellena al sincronizar el editor.
             // Si llega no-vacío → JS corrió y tiene el contenido real (texto e/o imágenes).

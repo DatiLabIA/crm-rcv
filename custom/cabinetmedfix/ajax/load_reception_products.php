@@ -108,6 +108,16 @@ if (!$resLines) {
 
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 
+// Log para diagnóstico
+dol_syslog('load_reception_products: order_id='.$orderId.' receptionIds='.implode(',', $receptionIds).' patientId='.$patientId, LOG_DEBUG);
+
+$numProducts = $db->num_rows($resLines);
+dol_syslog('load_reception_products: productos encontrados en recepciones='.$numProducts, LOG_DEBUG);
+
+if ($numProducts === 0) {
+	die(json_encode(array('error' => 'No se encontraron productos en las recepciones seleccionadas para este paciente (socid='.$patientId.'). Verifica que las recepciones tengan productos y pertenezcan al mismo paciente de la orden.')));
+}
+
 $added  = 0;
 $errors = array();
 
@@ -214,8 +224,13 @@ foreach ($receptionIds as $receptionId) {
 	$reception->add_object_linked('commande', $orderId, $user, 1);
 }
 
+if ($added === 0 && !empty($errors)) {
+	die(json_encode(array('error' => 'No se pudo agregar ningún producto. Fallaron: '.implode(', ', $errors))));
+}
+
 $response = array('success' => true, 'added' => $added);
 if (!empty($errors)) {
 	$response['warning'] = 'No se pudieron agregar: '.implode(', ', $errors);
 }
+dol_syslog('load_reception_products: resultado added='.$added.' errors='.count($errors), LOG_DEBUG);
 die(json_encode($response));

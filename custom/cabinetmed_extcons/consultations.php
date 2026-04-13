@@ -531,7 +531,8 @@ if ($val !== '') {
                             
                             case 'html':
                                 require_once DOL_DOCUMENT_ROOT.'/core/class/doleditor.class.php';
-                                $doleditor = new DolEditor($input_name, $value, '', 150, 'dolibarr_notes', '', false, true, getDolGlobalInt('FCKEDITOR_ENABLE_SOCIETE'), ROWS_3, '90%');
+                                $html_input_name = 'cf_html_'.$field->field_name;
+                                $doleditor = new DolEditor($html_input_name, $value, '', 150, 'dolibarr_notes', '', false, true, isModEnabled('fckeditor'), ROWS_3, '90%');
                                 $doleditor->Create();
                                 break;
                                 
