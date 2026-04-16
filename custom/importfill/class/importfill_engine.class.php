@@ -238,6 +238,8 @@ class ImportFillEngine
             } elseif (strpos($dest, 'core.') === 0) {
                 $fieldName = substr($dest, 5);
                 $coreData[$fieldName] = $value;
+            } elseif (strpos($dest, 'lookup.') === 0) {
+                $this->resolveLookup($dest, $value, $coreData);
             }
         }
 
@@ -456,6 +458,155 @@ class ImportFillEngine
         $this->job->addLine($lineNum, $documento, 'update', $societeId, 'Updated '.count($changes).' field(s)', $changes);
 
         return 'update';
+    }
+
+    /**
+     * Resolve a lookup mapping destination to actual core field values.
+     * Queries dictionary tables to convert IDs/codes to the right values.
+     *
+     * @param string $dest      Lookup destination (e.g. lookup.town_by_dept_id)
+     * @param string $value     Raw value from CSV
+     * @param array  &$coreData Core data array (modified by reference)
+     */
+    private function resolveLookup($dest, $value, &$coreData)
+    {
+        if ($value === '') {
+            return;
+        }
+
+        switch ($dest) {
+            case 'lookup.town_by_dept_id':
+                // Value is a c_departements.rowid → resolve to department name and store in town
+                $resolved = $this->getDepartementNameById((int) $value);
+                if ($resolved !== false) {
+                    $coreData['town'] = $resolved;
+                    // Also set fk_departement if not already mapped
+                    if (!isset($coreData['fk_departement'])) {
+                        $coreData['fk_departement'] = (int) $value;
+                    }
+                } else {
+                    // Fallback: store raw value so data is not lost
+                    $coreData['town'] = $value;
+                }
+                break;
+
+            case 'lookup.town_by_dept_code':
+                // Value is a department code (e.g. DANE code) → resolve to name
+                $resolved = $this->getDepartementByCode($value);
+                if ($resolved !== false) {
+                    $coreData['town'] = $resolved['nom'];
+                    if (!isset($coreData['fk_departement'])) {
+                        $coreData['fk_departement'] = $resolved['rowid'];
+                    }
+                } else {
+                    $coreData['town'] = $value;
+                }
+                break;
+
+            case 'lookup.town_by_ziptown_id':
+                // Value is a c_ziptown.rowid → resolve to town name
+                $resolved = $this->getZiptownById((int) $value);
+                if ($resolved !== false) {
+                    $coreData['town'] = $resolved['town'];
+                    if (!empty($resolved['fk_county']) && !isset($coreData['fk_departement'])) {
+                        $coreData['fk_departement'] = $resolved['fk_county'];
+                    }
+                    if (!empty($resolved['zip']) && !isset($coreData['zip'])) {
+                        $coreData['zip'] = $resolved['zip'];
+                    }
+                } else {
+                    $coreData['town'] = $value;
+                }
+                break;
+
+            case 'lookup.dept_by_id':
+                // Value is c_departements.rowid → validate it exists and set fk_departement
+                $resolved = $this->getDepartementNameById((int) $value);
+                if ($resolved !== false) {
+                    $coreData['fk_departement'] = (int) $value;
+                }
+                break;
+
+            case 'lookup.dept_by_code':
+                // Value is a department code → resolve to rowid for fk_departement
+                $resolved = $this->getDepartementByCode($value);
+                if ($resolved !== false) {
+                    $coreData['fk_departement'] = $resolved['rowid'];
+                }
+                break;
+        }
+    }
+
+    /**
+     * Get department name by rowid from c_departements
+     *
+     * @param int $rowid Department rowid
+     * @return string|false Department name or false if not found
+     */
+    private function getDepartementNameById($rowid)
+    {
+        if (empty($rowid)) {
+            return false;
+        }
+
+        $sql = "SELECT nom FROM ".MAIN_DB_PREFIX."c_departements WHERE rowid = ".((int) $rowid);
+        $resql = $this->db->query($sql);
+        if ($resql && $this->db->num_rows($resql) > 0) {
+            $obj = $this->db->fetch_object($resql);
+            $this->db->free($resql);
+            return $obj->nom;
+        }
+        return false;
+    }
+
+    /**
+     * Get department by code from c_departements
+     *
+     * @param string $code Department code (e.g. DANE code)
+     * @return array|false Array with 'rowid' and 'nom', or false
+     */
+    private function getDepartementByCode($code)
+    {
+        if (empty($code)) {
+            return false;
+        }
+
+        $sql = "SELECT rowid, nom FROM ".MAIN_DB_PREFIX."c_departements";
+        $sql .= " WHERE code_departement = '".$this->db->escape(trim($code))."'";
+        $sql .= " AND active = 1";
+        $resql = $this->db->query($sql);
+        if ($resql && $this->db->num_rows($resql) > 0) {
+            $obj = $this->db->fetch_object($resql);
+            $this->db->free($resql);
+            return array('rowid' => (int) $obj->rowid, 'nom' => $obj->nom);
+        }
+        return false;
+    }
+
+    /**
+     * Get town info by rowid from c_ziptown
+     *
+     * @param int $rowid Ziptown rowid
+     * @return array|false Array with 'town', 'zip', 'fk_county', or false
+     */
+    private function getZiptownById($rowid)
+    {
+        if (empty($rowid)) {
+            return false;
+        }
+
+        $sql = "SELECT town, zip, fk_county FROM ".MAIN_DB_PREFIX."c_ziptown WHERE rowid = ".((int) $rowid);
+        $resql = $this->db->query($sql);
+        if ($resql && $this->db->num_rows($resql) > 0) {
+            $obj = $this->db->fetch_object($resql);
+            $this->db->free($resql);
+            return array(
+                'town' => $obj->town,
+                'zip' => $obj->zip,
+                'fk_county' => !empty($obj->fk_county) ? (int) $obj->fk_county : 0,
+            );
+        }
+        return false;
     }
 
     /**

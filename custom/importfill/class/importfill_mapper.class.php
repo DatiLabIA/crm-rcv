@@ -239,13 +239,45 @@ class ImportFillMapper
     /**
      * Get all available destination fields
      *
-     * @return array Array with 'core' and 'extra' keys
+     * @return array Array with 'core', 'extra', and 'lookup' keys
      */
     public function getAvailableFields()
     {
         return array(
-            'core'  => $this->coreFields,
-            'extra' => $this->extraFields,
+            'core'   => $this->coreFields,
+            'extra'  => $this->extraFields,
+            'lookup' => $this->getLookupFields(),
+        );
+    }
+
+    /**
+     * Get lookup fields (resolve IDs to names from dictionary tables)
+     *
+     * @return array
+     */
+    public function getLookupFields()
+    {
+        return array(
+            'town_by_dept_id' => array(
+                'label' => 'Ciudad (resolver por ID de departamento)',
+                'desc'  => 'El valor es un rowid de c_departements → guarda el nombre del departamento en Ciudad y asigna fk_departement',
+            ),
+            'town_by_dept_code' => array(
+                'label' => 'Ciudad (resolver por código de departamento)',
+                'desc'  => 'El valor es un código de departamento (ej. DANE) → resuelve nombre y asigna fk_departement',
+            ),
+            'town_by_ziptown_id' => array(
+                'label' => 'Ciudad (resolver por ID de diccionario zip-ciudad)',
+                'desc'  => 'El valor es un rowid de c_ziptown → guarda nombre de ciudad, código postal y departamento',
+            ),
+            'dept_by_id' => array(
+                'label' => 'Departamento (resolver por ID)',
+                'desc'  => 'El valor es un rowid de c_departements → valida que existe y asigna fk_departement',
+            ),
+            'dept_by_code' => array(
+                'label' => 'Departamento (resolver por código)',
+                'desc'  => 'El valor es un código de departamento → resuelve a rowid y asigna fk_departement',
+            ),
         );
     }
 
@@ -415,6 +447,12 @@ class ImportFillMapper
                 $coreName = substr($dest, 5);
                 if (!isset($this->coreFields[$coreName])) {
                     $errors[] = 'Unknown core field: '.$coreName;
+                }
+            } elseif (strpos($dest, 'lookup.') === 0) {
+                $lookupName = substr($dest, 7);
+                $lookupFields = $this->getLookupFields();
+                if (!isset($lookupFields[$lookupName])) {
+                    $errors[] = 'Unknown lookup field: '.$lookupName;
                 }
             }
         }

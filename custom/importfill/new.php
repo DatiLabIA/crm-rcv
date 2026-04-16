@@ -304,6 +304,17 @@ if ($step === 2 && $id > 0) {
                 print '</optgroup>';
             }
 
+            // Lookup fields (resolve IDs from dictionaries)
+            if (!empty($availableFields['lookup'])) {
+                print '<optgroup label="🔍 Resolver IDs (Lookup)">';
+                foreach ($availableFields['lookup'] as $lname => $linfo) {
+                    $val = 'lookup.'.$lname;
+                    $sel = ($currentMapping === $val) ? ' selected' : '';
+                    print '<option value="'.$val.'"'.$sel.' title="'.dol_escape_htmltag($linfo['desc']).'">'.$linfo['label'].'</option>';
+                }
+                print '</optgroup>';
+            }
+
             print '</select>';
             print '</td>';
 
