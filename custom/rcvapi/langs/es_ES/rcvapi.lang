@@ -1,0 +1,7 @@
+Module502200Name = RcvApi
+Module502200Desc = API REST para pacientes y consultas médicas
+
+Permission502201 = Leer pacientes vía API
+Permission502202 = Crear/modificar pacientes vía API
+Permission502203 = Leer consultas vía API
+Permission502204 = Crear/modificar consultas vía API

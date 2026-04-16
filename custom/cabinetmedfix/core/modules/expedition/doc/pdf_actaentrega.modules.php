@@ -145,6 +145,11 @@ class pdf_actaentrega extends ModelePdfExpedition
 
 		$object->fetch_thirdparty();
 
+		// Load extrafields (needed for EPS)
+		if (!empty($object->thirdparty)) {
+			$object->thirdparty->fetch_optionals();
+		}
+
 		if (!is_object($outputlangs)) {
 			$outputlangs = $langs;
 		}
@@ -272,6 +277,55 @@ class pdf_actaentrega extends ModelePdfExpedition
 		$pdf->Cell(30, 6, 'Fecha entrega:', 0, 0, 'L');
 		$pdf->SetFont($font, '', $defaultFontSize);
 		$pdf->Cell($colW - 30, 6, dol_print_date($deliveryDate, 'day', 'tzserver', $outputlangs), 0, 1, 'L');
+
+		$curY += 7;
+
+		// Patient phones
+		$phone1 = !empty($object->thirdparty->phone) ? $object->thirdparty->phone : '';
+		$phone2 = !empty($object->thirdparty->phone_mobile) ? $object->thirdparty->phone_mobile : '';
+		// If phone_mobile is not loaded from core Societe, try reading it directly
+		if (empty($phone2)) {
+			$sqlPhone = "SELECT phone_mobile FROM " . MAIN_DB_PREFIX . "societe WHERE rowid = " . (int) $object->thirdparty->id;
+			$resPhone = $this->db->query($sqlPhone);
+			if ($resPhone && $this->db->num_rows($resPhone) > 0) {
+				$objPhone = $this->db->fetch_object($resPhone);
+				$phone2 = !empty($objPhone->phone_mobile) ? $objPhone->phone_mobile : '';
+			}
+		}
+
+		$pdf->SetFont($font, 'B', $defaultFontSize);
+		$pdf->SetXY($colLeft, $curY);
+		$pdf->Cell(25, 6, "Tel\xc3\xa9fono 1:", 0, 0, 'L');
+		$pdf->SetFont($font, '', $defaultFontSize);
+		$pdf->Cell($colW - 25, 6, $phone1, 0, 0, 'L');
+
+		$pdf->SetFont($font, 'B', $defaultFontSize);
+		$pdf->SetXY($colRight, $curY);
+		$pdf->Cell(30, 6, "Tel\xc3\xa9fono 2:", 0, 0, 'L');
+		$pdf->SetFont($font, '', $defaultFontSize);
+		$pdf->Cell($colW - 30, 6, $phone2, 0, 1, 'L');
+
+		$curY += 7;
+
+		// Patient EPS (extrafield sellist → llx_gestion_eps)
+		$epsLabel = '';
+		if (!empty($object->thirdparty->array_options['options_eps'])) {
+			$epsId = (int) $object->thirdparty->array_options['options_eps'];
+			if ($epsId > 0) {
+				$sqlEps = "SELECT descripcion FROM " . MAIN_DB_PREFIX . "gestion_eps WHERE rowid = " . $epsId;
+				$resEps = $this->db->query($sqlEps);
+				if ($resEps && $this->db->num_rows($resEps) > 0) {
+					$objEps = $this->db->fetch_object($resEps);
+					$epsLabel = $objEps->descripcion;
+				}
+			}
+		}
+
+		$pdf->SetFont($font, 'B', $defaultFontSize);
+		$pdf->SetXY($colLeft, $curY);
+		$pdf->Cell(25, 6, 'EPS:', 0, 0, 'L');
+		$pdf->SetFont($font, '', $defaultFontSize);
+		$pdf->Cell($colW - 25, 6, $epsLabel, 0, 1, 'L');
 
 		$curY += 7;
 
