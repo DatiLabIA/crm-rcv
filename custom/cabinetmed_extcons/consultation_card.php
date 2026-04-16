@@ -1072,6 +1072,35 @@ if ($action == 'edit' && $permtocreate) {
         print '</table>';
     }
     
+    // Custom Data section (solo visible si hay datos de API)
+    if (!empty($object->custom_data)) {
+        $custom_decoded = json_decode($object->custom_data, true);
+        if (is_array($custom_decoded) && !empty($custom_decoded)) {
+            // Usar solo json_encode básico sin flags problemáticos
+            $json_formatted = json_encode($custom_decoded);
+            if (empty($json_formatted)) {
+                $json_formatted = $object->custom_data;
+            }
+            
+            print '<br>';
+            print '<div class="custom-data-section">';
+            print '<div style="cursor:pointer; padding:8px; background:#f8f8f8; border:1px solid #ddd; border-radius:3px;" onclick="jQuery(this).next().slideToggle();">';
+            print '<i class="fa fa-code" style="color:#666;"></i> ';
+            print '<span style="color:#666; font-size:0.9em;">Datos API (JSON)</span> ';
+            print '<i class="fa fa-chevron-down" style="color:#999; font-size:0.8em; float:right; margin-top:3px;"></i>';
+            print '</div>';
+            print '<div style="display:none; padding:10px; background:#fafafa; border:1px solid #ddd; border-top:none; border-radius:0 0 3px 3px;">';
+            print '<pre style="margin:0; padding:10px; background:#fff; border:1px solid #e0e0e0; border-radius:3px; font-size:0.85em; max-height:400px; overflow:auto; white-space:pre-wrap; word-wrap:break-word;">';
+            print htmlspecialchars($json_formatted, ENT_QUOTES, 'UTF-8');
+            print '</pre>';
+            print '<small class="opacitymedium" style="display:block; margin-top:5px;">';
+            print '<i class="fa fa-info-circle"></i> Datos enviados desde la API REST en formato JSON.';
+            print '</small>';
+            print '</div>';
+            print '</div>';
+        }
+    }
+    
     print '</div>'; // End dynamic sections // End dynamic sections
     
     print dol_get_fiche_end();
@@ -1145,7 +1174,7 @@ jQuery(document).ready(function() {
                     }
                 });
                 // Re-enable CKEditor instances in this section
-                if (typeof CKEDITOR !== 'undefined') {
+                if (typeof CKEDITOR !== "undefined") {
                     jQuery(this).find("textarea").each(function() {
                         var eid = jQuery(this).attr("id");
                         if (eid && CKEDITOR.instances[eid]) {
@@ -1157,7 +1186,7 @@ jQuery(document).ready(function() {
                 jQuery(this).slideUp();
                 jQuery(this).find("input, textarea, select").prop("disabled", true);
                 // Set CKEditor to read-only instead of disabled
-                if (typeof CKEDITOR !== 'undefined') {
+                if (typeof CKEDITOR !== "undefined") {
                     jQuery(this).find("textarea").each(function() {
                         var eid = jQuery(this).attr("id");
                         if (eid && CKEDITOR.instances[eid]) {

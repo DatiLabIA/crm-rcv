@@ -85,22 +85,31 @@ POST /consultations
 | `fk_user` | int | Usuario responsable principal | ID de usuario |
 | `assigned_users` | array[int] | Usuarios adicionales asignados | Array de IDs de usuario |
 
-##### **Campos de Contenido Clínico:**
+##### **Campos de Contenido:**
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
-| `motivo` | string | Motivo de consulta |
-| `diagnostico` | string | Diagnóstico |
-| `procedimiento` | string | Procedimiento realizado |
-| `medicamentos` | string | Medicamentos prescritos |
-| `observaciones` | string | Observaciones generales |
-| `cumplimiento` | string | Nivel de cumplimiento |
-| `razon_inc` | string | Razón de incumplimiento |
-| `mes_actual` | string | Información mes actual |
-| `proximo_mes` | string | Información próximo mes |
-| `dificultad` | int | Nivel de dificultad (0-10) |
-| `insumos_enf` | string | Insumos de enfermería |
-| `rx_num` | string | Número de receta |
+| `observaciones` | string | Observaciones generales de la consulta |
+
+##### **Campos Disponibles pero NO Utilizados Actualmente:**
+
+Estos campos existen en la base de datos pero **no se usan** en el flujo actual del sistema:
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `motivo` | string | Motivo de consulta (legacy) |
+| `diagnostico` | string | Diagnóstico (legacy) |
+| `procedimiento` | string | Procedimiento realizado (legacy) |
+| `medicamentos` | string | Medicamentos prescritos (legacy) |
+| `cumplimiento` | string | Nivel de cumplimiento (legacy) |
+| `razon_inc` | string | Razón de incumplimiento (legacy) |
+| `mes_actual` | string | Información mes actual (legacy) |
+| `proximo_mes` | string | Información próximo mes (legacy) |
+| `dificultad` | int | Nivel de dificultad 0-10 (legacy) |
+| `insumos_enf` | string | Insumos de enfermería (legacy) |
+| `rx_num` | string | Número de receta (legacy) |
+
+⚠️ **Recomendación:** Usa el campo `custom_data` (JSON) para guardar información clínica adicional en lugar de estos campos legacy.
 
 ##### **Campos de Notas:**
 
@@ -195,14 +204,17 @@ DOLAPIKEY: l7l73HZ4fy76WJT68ihanAAs0EIU9dAl
     "status": 0,
     "date_start": "2026-04-17 10:00:00",
     "date_end": "2026-04-17 10:30:00",
-    "motivo": "Seguimiento tratamiento",
-    "diagnostico": "Paciente estable",
-    "observaciones": "El paciente reporta mejora en síntomas",
+    "observaciones": "El paciente reporta mejora en síntomas. Seguimiento vía WhatsApp.",
     "assigned_users": [1, 5],
     "custom_data": {
         "origen": "chatbot",
         "conversacion_id": "12345",
-        "canal": "whatsapp"
+        "canal": "whatsapp",
+        "datos_clinicos": {
+            "presion_arterial": "120/80",
+            "peso": "72kg",
+            "temperatura": "36.5"
+        }
     }
 }
 ```
@@ -270,20 +282,15 @@ Cuando obtienes una consulta (GET), recibes estos campos:
     "date_start": "17/04/2026 03:00 PM",
     "date_end": "17/04/2026 03:30 PM",
     "tipo_atencion": "gestion_whatsapp",
-    "cumplimiento": "",
-    "razon_inc": "",
-    "mes_actual": "",
-    "proximo_mes": "",
-    "dificultad": 0,
-    "motivo": "",
-    "diagnostico": "",
-    "procedimiento": "",
-    "insumos_enf": "",
-    "rx_num": "",
-    "medicamentos": "",
     "observaciones": "Test multi-user: chatbot (7) + usuario 1",
     "status": 0,
-    "custom_data": null,  // o objeto JSON si se guardó
+    "custom_data": {
+        "origen": "chatbot",
+        "conversacion_id": "12345",
+        "datos_clinicos": {
+            "presion_arterial": "120/80"
+        }
+    },
     "recurrence_enabled": 0,
     "recurrence_interval": 1,
     "recurrence_unit": "weeks",
@@ -295,7 +302,20 @@ Cuando obtienes una consulta (GET), recibes estos campos:
     "datec": "16/04/2026 06:35 PM",  // Fecha de creación
     "tms": "16/04/2026 06:35 PM",    // Última modificación
     "fk_user_creat": 7,
-    "fk_user_modif": null
+    "fk_user_modif": null,
+    
+    // Campos legacy (existen pero no se usan):
+    "cumplimiento": "",
+    "razon_inc": "",
+    "mes_actual": "",
+    "proximo_mes": "",
+    "dificultad": 0,
+    "motivo": "",
+    "diagnostico": "",
+    "procedimiento": "",
+    "insumos_enf": "",
+    "rx_num": "",
+    "medicamentos": ""
 }
 ```
 
@@ -346,9 +366,16 @@ $data = @{
     date_start = "2026-04-18 14:00:00"
     date_end = "2026-04-18 14:30:00"
     assigned_users = @(1, 5)  # Usuarios adicionales al chatbot (7)
-    motivo = "Control mensual"
     observaciones = "Sesión virtual programada"
-} | ConvertTo-Json
+    custom_data = @{
+        origen = "sistema"
+        tipo_sesion = "video"
+        datos_clinicos = @{
+            motivo = "Control mensual"
+            observaciones_clinicas = "Paciente estable"
+        }
+    }
+} | ConvertTo-Json -Depth 5
 
 $response = Invoke-RestMethod -Uri "https://crm.rcvco.org/api/index.php/rcvrest/consultations" `
     -Method Post `
@@ -402,8 +429,28 @@ foreach ($consulta in $consultas) {
 
 ### 3. **Custom Data**
 - Usa `custom_data` para guardar información adicional en formato JSON
-- Ideal para: IDs de conversaciones, metadatos, referencias externas
+- Ideal para: IDs de conversaciones, metadatos, referencias externas, **datos clínicos**
 - Se devuelve como objeto en las respuestas
+- **Recomendado:** Guardar aquí información clínica (motivo, diagnóstico, medicamentos, etc.) en lugar de usar los campos legacy
+- **Visualización:** En la interfaz web, aparece una sección colapsable "Datos API (JSON)" cuando la consulta tiene custom_data (solo visible si hay datos)
+
+**Ejemplo de custom_data:**
+```json
+{
+    "custom_data": {
+        "origen": "chatbot",
+        "conversacion_id": "12345",
+        "canal": "whatsapp",
+        "datos_clinicos": {
+            "motivo": "Seguimiento tratamiento",
+            "diagnostico": "Paciente estable",
+            "medicamentos": "Losartán 50mg",
+            "presion_arterial": "120/80",
+            "peso": "72kg"
+        }
+    }
+}
+```
 
 ### 4. **Asignación de Usuarios**
 - **No incluyas** el ID 7 (chatbot) en `assigned_users` - se agrega automáticamente

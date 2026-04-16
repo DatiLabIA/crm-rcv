@@ -87,7 +87,14 @@ $consulta = @{
     date_start = "2026-04-17 10:00:00"
     observaciones = "Consulta desde API"
     assigned_users = @(1, 5)  # Usuarios adicionales
-} | ConvertTo-Json
+    custom_data = @{
+        origen = "chatbot"
+        conversacion_id = "12345"
+        datos_clinicos = @{
+            presion_arterial = "120/80"
+        }
+    }
+} | ConvertTo-Json -Depth 5
 
 $id = Invoke-RestMethod `
     -Uri "https://crm.rcvco.org/api/index.php/rcvrest/consultations" `
