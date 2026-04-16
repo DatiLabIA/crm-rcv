@@ -1,11 +1,11 @@
 <?php
 /* Copyright (C) 2025 DatiLab
- * Módulo API REST para pacientes y consultas
+ * Módulo API REST para pacientes y consultas médicas
  */
 
 include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
 
-class modRcvApi extends DolibarrModules
+class modRcvrest extends DolibarrModules
 {
 	public function __construct($db)
 	{
@@ -14,7 +14,7 @@ class modRcvApi extends DolibarrModules
 		$this->db = $db;
 
 		$this->numero = 502200;
-		$this->rights_class = 'rcvapi';
+		$this->rights_class = 'rcvrest';
 		$this->family = "crm";
 		$this->module_position = '90';
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
@@ -26,12 +26,12 @@ class modRcvApi extends DolibarrModules
 		$this->editor_name = 'DatiLab';
 		$this->editor_url = 'https://www.datilab.com';
 
-		$this->depends = array('modSociete', 'modCabinetMed');
+		$this->depends = array('modSociete', 'modCabinetMed', 'modCabinetMedExtCons');
 		$this->requiredby = array();
 		$this->conflictwith = array();
 		$this->phpmin = array(7, 4);
 		$this->need_dolibarr_version = array(21, 0);
-		$this->langfiles = array("rcvapi@rcvapi");
+		$this->langfiles = array("rcvrest@rcvrest");
 
 		$this->const = array();
 		$this->tabs = array();
