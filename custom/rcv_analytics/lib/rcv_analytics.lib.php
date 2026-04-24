@@ -48,33 +48,36 @@ function rcv_print_inline_styles()
     print '<style>
 /* ── RCV Analytics – estilos inline v2 ──────────────────────────── */
 
-/* Contenedor raíz – se adapta al área de contenido de Dolibarr */
-.rcv-wrap{width:100%;max-width:100%;box-sizing:border-box;min-width:0;overflow:hidden}
+/* Anclar la columna de contenido de Dolibarr al viewport */
+#id-right{max-width:calc(100vw - 290px)!important;overflow-x:hidden!important}
+
+/* Contenedor raíz */
+.rcv-wrap{width:100%;max-width:100%;box-sizing:border-box;min-width:0;overflow-x:hidden}
 
 /* ── Filtros ── */
-.rcv-filters{margin:0 0 14px;background:#f8fafc;border:1px solid #dde8ef;border-radius:6px;padding:10px 14px;box-sizing:border-box}
-.rcv-filter-dates{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px;margin-bottom:8px}
-.rcv-filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:6px 12px;margin-bottom:8px}
-.rcv-filter-item{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rcv-filters{margin:0 0 14px;background:#f8fafc;border:1px solid #dde8ef;border-radius:6px;padding:10px 14px;box-sizing:border-box;width:100%;overflow:hidden}
+.rcv-filter-dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 12px;margin-bottom:8px;width:100%;overflow:hidden}
+.rcv-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:6px 12px;margin-bottom:8px;width:100%;overflow:hidden}
+.rcv-filter-item{display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden}
 .rcv-filter-item label{font-size:.75em;font-weight:600;color:#4a6070;text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rcv-filter-item select,.rcv-filter-item input[type="text"]{width:100%;box-sizing:border-box;min-width:0}
 .rcv-filter-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid #dde8ef;margin-top:4px}
 
 /* ── KPIs – grid ── */
-.rcv-kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}
-.rcv-kpi-card{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);padding:12px 16px;min-width:0;display:flex;flex-direction:column}
+.rcv-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0;width:100%;overflow:hidden}
+.rcv-kpi-card{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);padding:12px 16px;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .rcv-kpi-value{font-size:1.75em;font-weight:700;color:#1e293b;line-height:1.1}
 .rcv-kpi-label{font-size:.78em;color:#64748b;margin-top:4px}
 
 /* ── Gráficas – 2 columnas desktop ── */
-.rcv-charts-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0}
+.rcv-charts-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0;width:100%}
 .rcv-chart-box{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);padding:14px 16px;min-width:0;overflow:hidden;display:flex;flex-direction:column;height:320px;box-sizing:border-box}
 .rcv-chart-box.rcv-chart-wide{grid-column:1/-1;height:340px}
 .rcv-chart-box h3{margin:0 0 6px;font-size:.88em;font-weight:600;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rcv-chart-box canvas{display:block;flex:1;min-height:0;width:100%!important;max-width:100%!important}
 
 /* ── Tablas – scrollable, compactas, legibles ── */
-.rcv-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:12px 0;max-width:100%;border:1px solid #e5e7eb;border-radius:6px;background:#fff}
+.rcv-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:12px 0;width:100%;max-width:100%;border:1px solid #e5e7eb;border-radius:6px;background:#fff;box-sizing:border-box}
 .rcv-table-wrapper table{width:100%;min-width:0;border-collapse:collapse;font-size:.85em}
 .rcv-table-wrapper table th{position:sticky;top:0;background:#f1f5f9;font-weight:600;font-size:.82em;color:#374151;text-transform:uppercase;letter-spacing:.02em;padding:8px 10px;white-space:nowrap;border-bottom:2px solid #d1d5db;text-align:left}
 .rcv-table-wrapper table td{padding:6px 10px;color:#1e293b;border-bottom:1px solid #f0f0f0;white-space:nowrap}
@@ -84,7 +87,7 @@ function rcv_print_inline_styles()
 
 /* Tabla densa – para tablas cruzadas con muchas columnas */
 .rcv-table-dense table{font-size:.78em}
-.rcv-table-dense table th,.rcv-table-dense table td{padding:5px 7px}
+.rcv-table-dense table th,.rcv-table-dense table td{padding:5px 7px;white-space:normal}
 
 /* Encabezados de sección de tablas */
 .rcv-section-title{margin:20px 0 4px;font-size:.95em;font-weight:600;color:#1e293b;border-left:4px solid #2563eb;padding-left:10px}
@@ -94,6 +97,13 @@ function rcv_print_inline_styles()
 .rcv-quick-links a{display:block;text-align:center}
 .rcv-pagination{margin:8px 0;text-align:right;font-size:.9em}
 
+/* ── Presets de fecha rápida ── */
+.rcv-date-presets{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:8px 10px;margin:6px 0 8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px}
+.rcv-date-presets .rcv-preset-lbl{font-size:.73em;font-weight:600;color:#64748b;white-space:nowrap;margin-right:4px}
+.rcv-date-presets button{font-size:.75em;padding:4px 11px;cursor:pointer;border:1px solid #93c5fd;border-radius:12px;background:#fff;color:#1d4ed8;line-height:1.6;white-space:nowrap;transition:background .12s,border-color .12s;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.rcv-date-presets button:hover{background:#dbeafe;border-color:#3b82f6}
+.rcv-date-presets button.rcv-preset-active{background:#2563eb;border-color:#1d4ed8;color:#fff;box-shadow:0 1px 4px rgba(37,99,235,.35);font-weight:600}
+
 /* ── multisel custom dropdown ── */
 .rcv-ms{position:relative;width:100%;min-width:0}
 .rcv-ms-btn{width:100%;text-align:left;background:#fff;border:1px solid #c4c4c4;border-radius:3px;padding:5px 26px 5px 8px;cursor:pointer;font-size:.86em;position:relative;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#333;line-height:1.5}
@@ -101,7 +111,7 @@ function rcv_print_inline_styles()
 .rcv-ms-btn.rcv-ms-active{border-color:#2563eb;color:#1e3a8a;background:#eff6ff}
 .rcv-ms-arrow{position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:.65em;color:#777;transition:transform .15s}
 .rcv-ms.open .rcv-ms-arrow{transform:translateY(-50%) rotate(180deg)}
-.rcv-ms-panel{display:none;position:absolute;top:calc(100% + 2px);left:0;z-index:1500;background:#fff;border:1px solid #2563eb;border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.13);min-width:180px;width:max-content;max-width:300px}
+.rcv-ms-panel{display:none;position:fixed;z-index:9500;background:#fff;border:1px solid #2563eb;border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.13);min-width:180px;width:max-content;max-width:min(300px,calc(100vw - 24px))}
 .rcv-ms.open .rcv-ms-panel{display:block}
 .rcv-ms-search{padding:6px 8px 5px}
 .rcv-ms-search input{width:100%;border:1px solid #ddd;border-radius:3px;padding:3px 7px;font-size:.82em;box-sizing:border-box;outline:none}
@@ -118,7 +128,8 @@ function rcv_print_inline_styles()
 /* ── responsive ── */
 @media(max-width:1100px){.rcv-charts-row{grid-template-columns:repeat(2,minmax(0,1fr))}.rcv-chart-box{height:280px}}
 @media(max-width:900px){.rcv-chart-box{height:260px}}
-@media(max-width:768px){.rcv-charts-row{grid-template-columns:1fr}.rcv-chart-box,.rcv-chart-box.rcv-chart-wide{height:250px}.rcv-filter-grid,.rcv-filter-dates{grid-template-columns:1fr 1fr}.rcv-kpi-row{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.rcv-filter-grid,.rcv-filter-dates{grid-template-columns:1fr 1fr}.rcv-kpi-row{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.rcv-charts-row{grid-template-columns:1fr}.rcv-chart-box,.rcv-chart-box.rcv-chart-wide{height:250px}}
 @media(max-width:480px){.rcv-filter-grid,.rcv-filter-dates,.rcv-kpi-row{grid-template-columns:1fr}}
 </style>';
 }
@@ -217,7 +228,21 @@ function rcvMsFilter(ms,q){
     o.style.display=(!lq||o.textContent.toLowerCase().indexOf(lq)>=0)?"":"none";
   });
 }
-function rcvMsClose(){document.querySelectorAll(".rcv-ms.open").forEach(function(el){el.classList.remove("open");});}
+function rcvMsPosPanel(ms){
+  var btn=ms.querySelector(".rcv-ms-btn"),panel=ms.querySelector(".rcv-ms-panel");
+  if(!btn||!panel) return;
+  var r=btn.getBoundingClientRect();
+  panel.style.top=(r.bottom+2)+"px";
+  panel.style.left=r.left+"px";
+  panel.style.minWidth=r.width+"px";
+}
+function rcvMsClose(){
+  document.querySelectorAll(".rcv-ms.open").forEach(function(el){
+    el.classList.remove("open");
+    var p=el.querySelector(".rcv-ms-panel");
+    if(p) p.style.top=p.style.left=p.style.minWidth="";
+  });
+}
 function rcvMsInit(ms){
   var btn=ms.querySelector(".rcv-ms-btn"),srch=ms.querySelector(".rcv-ms-search input");
   var btnAll=ms.querySelector(".rcv-ms-all"),btnNone=ms.querySelector(".rcv-ms-none");
@@ -226,7 +251,11 @@ function rcvMsInit(ms){
     e.stopPropagation();
     var was=ms.classList.contains("open");
     rcvMsClose();
-    if(!was){ms.classList.add("open");if(srch){srch.value="";rcvMsFilter(ms,"");setTimeout(function(){srch.focus();},30);}}
+    if(!was){
+      rcvMsPosPanel(ms);
+      ms.classList.add("open");
+      if(srch){srch.value="";rcvMsFilter(ms,"");setTimeout(function(){srch.focus();},30);}
+    }
   });
   if(srch){
     srch.addEventListener("input",function(){rcvMsFilter(ms,this.value);});
@@ -252,6 +281,10 @@ function rcvMsInit(ms){
 }
 document.addEventListener("click",rcvMsClose);
 document.addEventListener("keydown",function(e){if(e.key==="Escape")rcvMsClose();});
+window.addEventListener("scroll",function(e){
+  if(!e.target.closest||!e.target.closest(".rcv-ms-panel"))rcvMsClose();
+},true);
+window.addEventListener("resize",rcvMsClose);
 document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll(".rcv-ms").forEach(rcvMsInit);});
 })();
 </script>';
@@ -317,12 +350,99 @@ function rcv_filter_querystring(array $filters)
         'diagnostico'         => 'filter_diagnostico',
         'ips_primaria'        => 'filter_ips_primaria',
         'estado_del_paciente' => 'filter_estado_del_paciente',
+        'regimen'             => 'filter_regimen',
+        'medico_tratante'     => 'filter_medico_tratante',
+        'departamento'        => 'filter_departamento',
+        'ciudad'              => 'filter_ciudad',
         'groupby'             => 'filter_groupby',
     );
     foreach ($map as $fkey => $qkey) {
-        if (!empty($filters[$fkey])) {
-            $params[] = urlencode($qkey).'='.urlencode($filters[$fkey]);
+        if (empty($filters[$fkey])) continue;
+        $val = $filters[$fkey];
+        if (is_array($val)) {
+            foreach ($val as $v) {
+                if ((string)$v !== '') {
+                    $params[] = urlencode($qkey.'[]').'='.urlencode($v);
+                }
+            }
+        } else {
+            $params[] = urlencode($qkey).'='.urlencode($val);
         }
     }
     return $params ? '?'.implode('&', $params) : '';
+}
+
+/**
+ * Imprime botones de período rápido que rellenan los campos de fecha y envían el formulario.
+ * Debe colocarse dentro del <form> de filtros, después del bloque de fechas.
+ */
+function rcv_print_date_presets()
+{
+    static $jsEmitted = false;
+    print '<div class="rcv-date-presets">';
+    print '<span class="rcv-preset-lbl">Período rápido:</span>';
+    print '<button type="button" data-preset="year0"  onclick="rcvPresetYear(this,0)">Año actual</button>';
+    print '<button type="button" data-preset="year-1" onclick="rcvPresetYear(this,-1)">Año anterior</button>';
+    print '<button type="button" data-preset="q1"     onclick="rcvPresetQuarter(this,1)">T1 (ene-mar)</button>';
+    print '<button type="button" data-preset="q2"     onclick="rcvPresetQuarter(this,2)">T2 (abr-jun)</button>';
+    print '<button type="button" data-preset="q3"     onclick="rcvPresetQuarter(this,3)">T3 (jul-sep)</button>';
+    print '<button type="button" data-preset="q4"     onclick="rcvPresetQuarter(this,4)">T4 (oct-dic)</button>';
+    print '<button type="button" data-preset="last12" onclick="rcvPresetLast12(this)">Últimos 12 meses</button>';
+    print '</div>';
+    if (!$jsEmitted) {
+        $jsEmitted = true;
+        print '<script>
+function rcvApplyPreset(btn,y1,m1,d1,y2,m2,d2){
+  var f=btn.closest("form");
+  function sv(n,v){var e=f.querySelector("[name=\'"+n+"\']");if(e)e.value=v;}
+  sv("filter_date_startday",d1);sv("filter_date_startmonth",m1);sv("filter_date_startyear",y1);
+  sv("filter_date_endday",d2);sv("filter_date_endmonth",m2);sv("filter_date_endyear",y2);
+  f.submit();
+}
+function rcvPresetYear(btn,offset){
+  var y=new Date().getFullYear()+(offset||0);
+  rcvApplyPreset(btn,y,1,1,y,12,31);
+}
+function rcvPresetQuarter(btn,q){
+  var y=new Date().getFullYear();
+  var qm=[[1,3],[4,6],[7,9],[10,12]][q-1];
+  rcvApplyPreset(btn,y,qm[0],1,y,qm[1],new Date(y,qm[1],0).getDate());
+}
+function rcvPresetLast12(btn){
+  var e=new Date(),s=new Date(e);
+  s.setFullYear(s.getFullYear()-1);s.setDate(s.getDate()+1);
+  rcvApplyPreset(btn,s.getFullYear(),s.getMonth()+1,s.getDate(),e.getFullYear(),e.getMonth()+1,e.getDate());
+}
+function rcvDetectActivePreset(){
+  document.querySelectorAll(".rcv-date-presets").forEach(function(row){
+    var f=row.closest("form");if(!f)return;
+    function gv(n){var e=f.querySelector("[name=\'"+n+"\']");return e?parseInt(e.value)||0:0;}
+    var sy=gv("filter_date_startyear"),sm=gv("filter_date_startmonth"),sd=gv("filter_date_startday");
+    var ey=gv("filter_date_endyear"),  em=gv("filter_date_endmonth"),  ed=gv("filter_date_endday");
+    if(!sy||!ey)return;
+    var cy=new Date().getFullYear(), match=null;
+    if(sy===cy   &&sm===1 &&sd===1&&ey===cy   &&em===12&&ed===31) match="year0";
+    else if(sy===cy-1&&sm===1&&sd===1&&ey===cy-1&&em===12&&ed===31) match="year-1";
+    else{
+      var qm=[[1,3],[4,6],[7,9],[10,12]];
+      for(var q=0;q<4;q++){
+        var ld=new Date(cy,qm[q][1],0).getDate();
+        if(sy===cy&&sm===qm[q][0]&&sd===1&&ey===cy&&em===qm[q][1]&&ed===ld){match="q"+(q+1);break;}
+      }
+    }
+    if(!match){
+      var now=new Date(),s12=new Date(now);
+      s12.setFullYear(s12.getFullYear()-1);s12.setDate(s12.getDate()+1);
+      if(sy===s12.getFullYear()&&sm===s12.getMonth()+1&&sd===s12.getDate()&&
+         ey===now.getFullYear()&&em===now.getMonth()+1&&ed===now.getDate()) match="last12";
+    }
+    if(match){
+      var btn=row.querySelector("[data-preset=\'"+match+"\']");
+      if(btn)btn.classList.add("rcv-preset-active");
+    }
+  });
+}
+document.addEventListener("DOMContentLoaded",rcvDetectActivePreset);
+</script>';
+    }
 }

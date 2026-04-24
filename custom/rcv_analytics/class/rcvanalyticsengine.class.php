@@ -56,13 +56,14 @@ class RcvAnalyticsEngine
         'medicamento'        => array('table' => 'gestion_medicamento',     'label' => 'etiqueta'),
         'programa'           => array('table' => 'gestion_programa',        'label' => 'nombre'),
         'concentracion'      => array('table' => 'gestion_medicamento_det', 'label' => 'concentracion_display'),
+        'diagnostico'        => array('table' => 'gestion_diagnostico',     'label' => 'label'),
     );
 
     /**
      * Campos chkbxlst: almacenan IDs separados por coma (e.g. "3,7,12").
+     * Nota: diagnostico se maneja via SELLIST_TABLES (almacena ID único como varchar).
      */
     private static $CHKBXLST_TABLES = array(
-        'diagnostico' => array('table' => 'gestion_diagnostico', 'label' => 'description'),
     );
 
     /**
@@ -396,6 +397,47 @@ class RcvAnalyticsEngine
     public function getPatientsStatusSummary()
     {
         return $this->getPatientDistributionBy('estado_del_paciente');
+    }
+
+    /**
+     * Distribución de pacientes por departamento.
+     * @return array [['categoria' => nom, 'total' => N], ...]
+     */
+    public function getPatientsByDepartamento()
+    {
+        $built = $this->buildWhere(false);
+        $extraJoin = ' LEFT JOIN '.MAIN_DB_PREFIX.'c_departements dep ON dep.rowid = s.fk_departement';
+
+        $sql = 'SELECT COALESCE(NULLIF(TRIM(dep.nom), \'\'), \'(Sin dato)\') AS categoria,'
+            .' COUNT(DISTINCT s.rowid) AS total'
+            .' FROM '.MAIN_DB_PREFIX.'societe s'
+            .$built['joins']
+            .$extraJoin
+            .$built['where']
+            .' GROUP BY dep.rowid, dep.nom'
+            .' ORDER BY total DESC';
+
+        return $this->fetchRows($sql);
+    }
+
+    /**
+     * Distribución de pacientes por ciudad.
+     * @return array [['categoria' => town, 'total' => N], ...]
+     */
+    public function getPatientsByCiudad()
+    {
+        $built = $this->buildWhere(false);
+
+        $sql = 'SELECT COALESCE(NULLIF(TRIM(s.town), \'\'), \'(Sin dato)\') AS categoria,'
+            .' COUNT(DISTINCT s.rowid) AS total'
+            .' FROM '.MAIN_DB_PREFIX.'societe s'
+            .$built['joins']
+            .$built['where']
+            .' GROUP BY s.town'
+            .' ORDER BY total DESC'
+            .' LIMIT 30';
+
+        return $this->fetchRows($sql);
     }
 
     /**
@@ -757,6 +799,88 @@ class RcvAnalyticsEngine
     }
 
     /**
+     * Retorna todos los pacientes con etiquetas resueltas para exportación XLSX/CSV.
+     * Sin límite de filas. Incluye JOINs a tablas de diccionario para campos sellist.
+     *
+     * @param  string $sortfield  Campo de ordenamiento
+     * @param  string $sortorder  ASC | DESC
+     * @return array  Filas con etiquetas resueltas
+     */
+    public function getPatientsForExport($sortfield = 's.nom', $sortorder = 'ASC')
+    {
+        $built = $this->buildWhere(false);
+        $joins = $built['joins'];
+
+        // JOINs a tablas de diccionario para resolver etiquetas
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_eps        AS d_eps  ON d_eps.rowid  = se.eps';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_medicamento AS d_med  ON d_med.rowid  = se.medicamento';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_operador    AS d_op   ON d_op.rowid   = se.operador_logistico';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_programa    AS d_prog ON d_prog.rowid = se.programa';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_medico      AS d_med2 ON d_med2.rowid = se.medico_tratante';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'gestion_diagnostico AS d_diag ON d_diag.rowid = se.diagnostico';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'c_departements      AS dep    ON dep.rowid    = s.fk_departement';
+        $joins .= ' LEFT JOIN '.MAIN_DB_PREFIX.'cabinetmed_extcons  AS c      ON c.fk_soc     = s.rowid';
+
+        $allowedSort = array('s.nom', 's.datec', 'd_eps.descripcion', 'd_med.etiqueta', 'd_prog.nombre');
+        if (!in_array($sortfield, $allowedSort)) $sortfield = 's.nom';
+        $sortorder = (strtoupper($sortorder) === 'DESC') ? 'DESC' : 'ASC';
+
+        $sql = 'SELECT'
+            .' s.rowid,'
+            .' s.nom                   AS nombre,'
+            .' s.datec                 AS fecha_creacion,'
+            .' s.email,'
+            .' s.phone,'
+            .' s.town                  AS ciudad,'
+            .' dep.nom                 AS departamento,'
+            .' se.tipo_de_documento,'
+            .' se.n_documento,'
+            .' se.birthdate,'
+            .' d_eps.descripcion       AS eps,'
+            .' se.regimen,'
+            .' se.tipo_de_afiliacion,'
+            .' d_med.etiqueta          AS medicamento,'
+            .' se.concentracion,'
+            .' d_op.nombre             AS operador_logistico,'
+            .' se.sede_operador_logistico,'
+            .' d_prog.nombre           AS programa,'
+            .' se.estado_del_paciente,'
+            .' se.estado_vital,'
+            .' se.ips_primaria,'
+            .' d_med2.nombre           AS medico_tratante,'
+            .' se.tipo_de_poblacion,'
+            .' d_diag.label            AS diagnostico,'
+            .' COUNT(c.rowid)          AS total_consultas,'
+            .' MAX(c.date_start)       AS ultima_consulta'
+            .' FROM '.MAIN_DB_PREFIX.'societe s'
+            .$joins
+            .$built['where']
+            .' GROUP BY s.rowid, s.nom, s.datec, s.email, s.phone, s.town,'
+            .' dep.nom, se.tipo_de_documento, se.n_documento, se.birthdate,'
+            .' d_eps.descripcion, se.regimen, se.tipo_de_afiliacion,'
+            .' d_med.etiqueta, se.concentracion, d_op.nombre,'
+            .' se.sede_operador_logistico, d_prog.nombre, se.estado_del_paciente,'
+            .' se.estado_vital, se.ips_primaria, d_med2.nombre,'
+            .' se.tipo_de_poblacion, d_diag.label'
+            .' ORDER BY '.$sortfield.' '.$sortorder;
+
+        $rows = $this->fetchRows($sql);
+
+        // Resolver etiquetas de campos SELECT (claves enteras → texto)
+        foreach ($rows as &$row) {
+            $row['tipo_de_documento']  = self::$SELECT_LABELS['tipo_de_documento'][(int)$row['tipo_de_documento']]  ?? $row['tipo_de_documento'];
+            $row['regimen']            = self::$SELECT_LABELS['regimen'][(int)$row['regimen']]                       ?? $row['regimen'];
+            $row['tipo_de_afiliacion'] = self::$SELECT_LABELS['tipo_de_afiliacion'][(int)$row['tipo_de_afiliacion']] ?? $row['tipo_de_afiliacion'];
+            $row['tipo_de_poblacion']  = self::$SELECT_LABELS['tipo_de_poblacion'][(int)$row['tipo_de_poblacion']]   ?? $row['tipo_de_poblacion'];
+            $row['estado_del_paciente']= self::$SELECT_LABELS['estado_del_paciente'][(int)$row['estado_del_paciente']] ?? $row['estado_del_paciente'];
+            $row['estado_vital']       = self::$SELECT_LABELS['estado_vital'][(int)$row['estado_vital']]             ?? $row['estado_vital'];
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
      * Cuenta total de pacientes para paginación
      */
     public function countPatients()
@@ -770,6 +894,56 @@ class RcvAnalyticsEngine
 
         $rows = $this->fetchRows($sql);
         return !empty($rows[0]['total']) ? (int) $rows[0]['total'] : 0;
+    }
+
+    /**
+     * Tres barras de resumen: acumulado del período filtrado (hasta hoy),
+     * mes actual y año actual. Aplica filtros no-fecha a los tres conteos;
+     * el filtro de fecha sólo afecta la barra de "período".
+     *
+     * @return array  [['label' => string, 'total' => int], ...]
+     */
+    public function getPatientsPeriodSummary()
+    {
+        $origFilters    = $this->filters;
+        $filtersNoDates = array_diff_key($origFilters, array_flip(array('patient_date_start', 'patient_date_end')));
+
+        // ── 1. Período: desde inicio del filtro (o todo el tiempo) hasta hoy ──
+        $this->filters = $filtersNoDates;
+        if (!empty($origFilters['patient_date_start'])) {
+            $this->filters['patient_date_start'] = $origFilters['patient_date_start'];
+        }
+        $this->filters['patient_date_end'] = date('Y-m-d');
+        $built = $this->buildWhere(false);
+        $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
+        $totalPeriod = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
+        $labelPeriod = !empty($origFilters['patient_date_start'])
+            ? 'Desde '.$origFilters['patient_date_start']
+            : 'Acumulado a hoy';
+
+        // ── 2. Mes actual ─────────────────────────────────────────────────────
+        $this->filters = $filtersNoDates;
+        $this->filters['patient_date_start'] = date('Y-m-01');
+        $this->filters['patient_date_end']   = date('Y-m-d');
+        $built = $this->buildWhere(false);
+        $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
+        $totalMonth = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
+
+        // ── 3. Año actual ─────────────────────────────────────────────────────
+        $this->filters = $filtersNoDates;
+        $this->filters['patient_date_start'] = date('Y-01-01');
+        $this->filters['patient_date_end']   = date('Y-m-d');
+        $built = $this->buildWhere(false);
+        $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
+        $totalYear = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
+
+        $this->filters = $origFilters;
+
+        return array(
+            array('label' => $labelPeriod,                    'total' => $totalPeriod),
+            array('label' => 'Mes actual ('.date('Y-m').')',  'total' => $totalMonth),
+            array('label' => 'Año actual ('.date('Y').')',    'total' => $totalYear),
+        );
     }
 
     /**

@@ -29,6 +29,16 @@ class ActionsCabinetMedFix
 	public $db;
 
 	/**
+	 * Extrafields sellist/select en el listado de pacientes que se convierten a multiselect.
+	 * Cada campo genera un filtro cmfix_ms_{field}[] y un AND ef.{field} IN (...) en el WHERE.
+	 */
+	const MULTISELECT_FIELDS = array(
+		'eps', 'medicamento', 'operador_logistico', 'programa',
+		'estado_del_paciente', 'medico_tratante', 'ips_primaria',
+		'regimen', 'tipo_de_poblacion', 'tipo_de_afiliacion',
+	);
+
+	/**
 	 * @var string Error code (or message)
 	 */
 	public $error = '';
@@ -1084,6 +1094,51 @@ class ActionsCabinetMedFix
 	}
 
 	/**
+	 * Hook printFieldListFrom — añade LEFT JOIN a llx_c_departements para la columna Departamento.
+	 */
+	public function printFieldListFrom($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!in_array('thirdpartylist', explode(':', $parameters['context']))) {
+			return 0;
+		}
+		if (strpos($_SERVER['PHP_SELF'], 'cabinetmed/patients.php') === false) {
+			return 0;
+		}
+		$this->resprints = ' LEFT JOIN ' . MAIN_DB_PREFIX . 'c_departements as state ON (state.rowid = s.fk_departement)';
+		return 0;
+	}
+
+	/**
+	 * Hook printFieldListSelect — añade s.fk_departement y state.nom al SELECT.
+	 */
+	public function printFieldListSelect($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!in_array('thirdpartylist', explode(':', $parameters['context']))) {
+			return 0;
+		}
+		if (strpos($_SERVER['PHP_SELF'], 'cabinetmed/patients.php') === false) {
+			return 0;
+		}
+		$this->resprints = ', s.fk_departement, state.nom as state_name, s.datec as date_creation';
+		return 0;
+	}
+
+	/**
+	 * Hook printFieldListGroupBy — añade s.fk_departement y state.nom al GROUP BY.
+	 */
+	public function printFieldListGroupBy($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!in_array('thirdpartylist', explode(':', $parameters['context']))) {
+			return 0;
+		}
+		if (strpos($_SERVER['PHP_SELF'], 'cabinetmed/patients.php') === false) {
+			return 0;
+		}
+		$this->resprints = ', s.fk_departement, state.nom';
+		return 0;
+	}
+
+	/**
 	 * Hook printFieldListWhere — fires AFTER extrafields_list_search_sql.tpl.php
 	 *
 	 * We modify the diagnostico extrafield param to add a WHERE (1=0) filter.
@@ -1105,31 +1160,67 @@ class ActionsCabinetMedFix
 		if (!in_array('thirdpartylist', explode(':', $parameters['context']))) {
 			return 0;
 		}
-
-		$te = !empty($object->table_element) ? $object->table_element : 'societe';
-
-		// Check that diagnostico exists as a chkbxlst field
-		if (empty($extrafields->attributes[$te]['type']['diagnostico'])
-			|| $extrafields->attributes[$te]['type']['diagnostico'] !== 'chkbxlst') {
+		if (strpos($_SERVER['PHP_SELF'], 'cabinetmed/patients.php') === false) {
 			return 0;
 		}
 
-		// Save original param so we can restore it after the filter input renders
+		$te = !empty($object->table_element) ? $object->table_element : 'societe';
+
+		// ── Multiselect filters (cmfix_ms_{field}[]) ─────────────────────────
+		$msWhere = '';
+		$isReset = GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 'alpha');
+		if (!$isReset) {
+			foreach (self::MULTISELECT_FIELDS as $field) {
+				$vals = array_filter(array_map('intval', (array) GETPOST('cmfix_ms_' . $field, 'array')));
+				if (!empty($vals)) {
+					$msWhere .= ' AND ef.' . $this->db->sanitize($field) . ' IN (' . implode(',', $vals) . ')';
+				}
+			}
+
+			// Departamento (s.fk_departement)
+			$deptVals = array_filter(array_map('intval', (array) GETPOST('cmfix_ms_state', 'array')));
+			if (!empty($deptVals)) {
+				$msWhere .= ' AND s.fk_departement IN (' . implode(',', $deptVals) . ')';
+			}
+
+			// Ciudad (s.town)
+			$cityVals = array_filter((array) GETPOST('cmfix_ms_town', 'array'), 'strlen');
+			if (!empty($cityVals)) {
+				$escaped = array_map(function ($c) { return "'" . $this->db->escape($c) . "'"; }, $cityVals);
+				$msWhere .= ' AND s.town IN (' . implode(',', $escaped) . ')';
+			}
+
+			// Fecha de creación (s.datec)
+			$cmfixDateStart = GETPOST('cmfix_datec_start', 'alpha');
+			$cmfixDateEnd   = GETPOST('cmfix_datec_end',   'alpha');
+			if ($cmfixDateStart && preg_match('/^\d{4}-\d{2}-\d{2}$/', $cmfixDateStart)) {
+				$msWhere .= " AND s.datec >= '" . $this->db->escape($cmfixDateStart) . " 00:00:00'";
+			}
+			if ($cmfixDateEnd && preg_match('/^\d{4}-\d{2}-\d{2}$/', $cmfixDateEnd)) {
+				$msWhere .= " AND s.datec <= '" . $this->db->escape($cmfixDateEnd) . " 23:59:59'";
+			}
+		}
+
+		// ── Diagnostico param modification (lightweight list filter) ─────────
+		if (empty($extrafields->attributes[$te]['type']['diagnostico'])
+			|| $extrafields->attributes[$te]['type']['diagnostico'] !== 'chkbxlst') {
+			$this->resprints = $msWhere;
+			return 0;
+		}
+
 		$this->diagOrigParam = $extrafields->attributes[$te]['param']['diagnostico'];
 
-		// Modify param: add WHERE (1=0) so the options query returns 0 rows
 		if (is_array($this->diagOrigParam) && !empty($this->diagOrigParam['options'])) {
 			$origKey = array_keys($this->diagOrigParam['options'])[0];
 			$parts   = explode(':', $origKey, 5);
-			// Rebuild with (1:=:0) filter at position 4
 			$newKey  = ($parts[0] ?? '') . ':' . ($parts[1] ?? '') . ':'
 				. ($parts[2] ?? 'rowid') . ':' . ($parts[3] ?? '') . ':(1:=:0)';
 			$extrafields->attributes[$te]['param']['diagnostico'] = array(
 				'options' => array($newKey => null)
 			);
-			dol_syslog('CabinetMedFix: Diagnostico param modified for lightweight list filter', LOG_DEBUG);
 		}
 
+		$this->resprints = $msWhere;
 		return 0;
 	}
 
@@ -1153,16 +1244,20 @@ class ActionsCabinetMedFix
 		if (!in_array('thirdpartylist', explode(':', $parameters['context']))) {
 			return 0;
 		}
+		if (strpos($_SERVER['PHP_SELF'], 'cabinetmed/patients.php') === false) {
+			return 0;
+		}
 
 		$te = !empty($object->table_element) ? $object->table_element : 'societe';
 
-		// Restore original param — critical for column value display later
+		$out = '';
+
+		// ── Diagnostico: restore original param ──────────────────────────────
 		if ($this->diagOrigParam !== null) {
 			$extrafields->attributes[$te]['param']['diagnostico'] = $this->diagOrigParam;
 			$this->diagOrigParam = null;
 		}
 
-		// Output pre-selected search data as JSON for JS pre-population
 		if (!empty($this->diagSearchIds)) {
 			$preselected = array();
 			$sql  = "SELECT rowid, codigo, description FROM " . MAIN_DB_PREFIX . "gestion_diagnostico";
@@ -1178,10 +1273,157 @@ class ActionsCabinetMedFix
 				}
 				$this->db->free($resql);
 			}
-			$this->resprints = "\n" . '<script type="application/json" id="diag-search-preselect">'
+			$out .= "\n" . '<script type="application/json" id="diag-search-preselect">'
 				. json_encode($preselected) . '</script>' . "\n";
 		}
 
+		// ── Multiselect: convert single-selects to Select2 multi ─────────────
+		$isReset = GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 'alpha');
+		$currentValues = array();
+		if (!$isReset) {
+			foreach (self::MULTISELECT_FIELDS as $field) {
+				$vals = array_values(array_filter((array) GETPOST('cmfix_ms_' . $field, 'array'), 'strlen'));
+				if (!empty($vals)) {
+					$currentValues[$field] = $vals;
+				}
+			}
+		}
+
+		// ── Departamento y Ciudad: opciones desde datos de pacientes ──────────
+		$deptOptions = array();
+		$sqlDept = 'SELECT DISTINCT dep.rowid, dep.nom'
+			. ' FROM ' . MAIN_DB_PREFIX . 'c_departements dep'
+			. ' INNER JOIN ' . MAIN_DB_PREFIX . 'societe s ON s.fk_departement = dep.rowid'
+			. " WHERE s.canvas='patient@cabinetmed' AND s.entity IN (" . getEntity('societe') . ')'
+			. ' ORDER BY dep.nom';
+		$resDept = $this->db->query($sqlDept);
+		if ($resDept) {
+			while ($o = $this->db->fetch_object($resDept)) {
+				$deptOptions[] = array('id' => (int) $o->rowid, 'text' => $o->nom);
+			}
+			$this->db->free($resDept);
+		}
+
+		$cityOptions = array();
+		$sqlCity = 'SELECT DISTINCT s.town'
+			. ' FROM ' . MAIN_DB_PREFIX . 'societe s'
+			. " WHERE s.canvas='patient@cabinetmed' AND s.entity IN (" . getEntity('societe') . ')'
+			. " AND s.town IS NOT NULL AND s.town <> ''"
+			. ' ORDER BY s.town';
+		$resCity = $this->db->query($sqlCity);
+		if ($resCity) {
+			while ($o = $this->db->fetch_object($resCity)) {
+				$cityOptions[] = array('id' => $o->town, 'text' => $o->town);
+			}
+			$this->db->free($resCity);
+		}
+
+		$curDept      = (!$isReset) ? array_values(array_filter(array_map('intval', (array) GETPOST('cmfix_ms_state', 'array')))) : array();
+		$curCity      = (!$isReset) ? array_values(array_filter((array) GETPOST('cmfix_ms_town', 'array'), 'strlen')) : array();
+		$curDateStart = (!$isReset) ? GETPOST('cmfix_datec_start', 'alpha') : '';
+		$curDateEnd   = (!$isReset) ? GETPOST('cmfix_datec_end',   'alpha') : '';
+
+		$nonce  = getNonce();
+		$fields = json_encode(self::MULTISELECT_FIELDS);
+		$cur    = json_encode($currentValues);
+		$out .= '<script nonce="' . $nonce . '">
+(function($){
+  var msFields=' . $fields . ';
+  var curVals=' . $cur . ';
+  var deptOpts=' . json_encode($deptOptions) . ';
+  var deptCur=' . json_encode($curDept) . ';
+  var cityOpts=' . json_encode($cityOptions) . ';
+  var cityCur=' . json_encode($curCity) . ';
+  var datecStart=' . json_encode($curDateStart) . ';
+  var datecEnd=' . json_encode($curDateEnd) . ';
+  function makeMs(td,name,opts,cur){
+    var ns=$("<select>").attr("name",name).attr("multiple",true).css("width","100%");
+    opts.forEach(function(o){ns.append($("<option>").val(o.id).text(o.text));});
+    td.empty().append(ns);
+    if(cur.length) ns.val(cur.map(String));
+    if($.fn.select2) ns.select2({width:"resolve",placeholder:"— Todos —",allowClear:true,closeOnSelect:false,dropdownAutoWidth:true});
+  }
+  $(document).ready(function(){
+    // Extrafields sellist/select
+    msFields.forEach(function(field){
+      var orig=$("select[name=\'search_options_"+field+"\']");
+      if(!orig.length) return;
+      var td=orig.closest("td");
+      var ns=$("<select>").attr("name","cmfix_ms_"+field+"[]").attr("multiple",true).css("width","100%");
+      orig.find("option").each(function(){
+        var o=$(this);
+        if(o.val()==="" || o.val()==="-1") return;
+        ns.append($("<option>").val(o.val()).text(o.text()));
+      });
+      td.empty().append(ns);
+      var vals=curVals[field]||[];
+      if(vals.length) ns.val(vals);
+      if($.fn.select2) ns.select2({width:"resolve",placeholder:"— Todos —",allowClear:true,closeOnSelect:false,dropdownAutoWidth:true});
+    });
+    // Departamento
+    var stIn=$("input[name=\'search_state\']");
+    if(stIn.length && deptOpts.length) makeMs(stIn.closest("td"),"cmfix_ms_state[]",deptOpts,deptCur);
+    // Ciudad
+    var twIn=$("input[name=\'search_town\']");
+    if(twIn.length && cityOpts.length) makeMs(twIn.closest("td"),"cmfix_ms_town[]",cityOpts,cityCur);
+    // Fecha de creación — celda vacía bajo la columna s.datec
+    var datecColIdx=-1;
+    $("table.liste tr.liste_titre th a").each(function(){
+      var href=$(this).attr("href")||"";
+      if(href.indexOf("sortfield=s.datec")>=0){ datecColIdx=$(this).closest("th").index(); return false; }
+    });
+    if(datecColIdx>=0){
+      var datecTd=$("table.liste tr.liste_titre_filter").children().eq(datecColIdx);
+      if(datecTd.length){
+        var s=$("<input>").attr({type:"date",name:"cmfix_datec_start",value:datecStart}).css({width:"100%","max-width":"120px","font-size":"0.85em"});
+        var e=$("<input>").attr({type:"date",name:"cmfix_datec_end",  value:datecEnd  }).css({width:"100%","max-width":"120px","font-size":"0.85em"});
+        datecTd.empty().append(s).append($("<br>")).append(e);
+      }
+    }
+    // ── Preservar filtros cmfix en links de ordenamiento ──────────────────
+    function cmfixGetCustomParams(){
+      var p=[];
+      msFields.forEach(function(f){
+        var sel=$("select[name=\'cmfix_ms_"+f+"[]\']");
+        var vals=sel.length?sel.val():null;
+        if(vals&&vals.length) vals.forEach(function(v){p.push({n:"cmfix_ms_"+f+"[]",v:v});});
+      });
+      var stVals=$("select[name=\'cmfix_ms_state[]\']").val();
+      if(stVals&&stVals.length) stVals.forEach(function(v){p.push({n:"cmfix_ms_state[]",v:v});});
+      var twVals=$("select[name=\'cmfix_ms_town[]\']").val();
+      if(twVals&&twVals.length) twVals.forEach(function(v){p.push({n:"cmfix_ms_town[]",v:v});});
+      var ds=$("input[name=\'cmfix_datec_start\']").val();
+      var de=$("input[name=\'cmfix_datec_end\']").val();
+      if(ds) p.push({n:"cmfix_datec_start",v:ds});
+      if(de) p.push({n:"cmfix_datec_end",  v:de});
+      return p;
+    }
+    $("table.liste tr.liste_titre th a").each(function(){
+      var $a=$(this);
+      var href=$a.attr("href")||"";
+      if(!href) return;
+      $a.on("click",function(e){
+        e.preventDefault();
+        var form=$("form[name=\'formfilter\']");
+        if(!form.length) form=$("form#searchFormList");
+        if(!form.length) form=$("form").filter(function(){ return $(this).find("input[name=\'button_search\']").length>0; }).first();
+        if(!form.length){ window.location.href=href; return; }
+        form.find("input.cmfix-sort-param").remove();
+        var urlParams=new URLSearchParams(href.split("?")[1]||"");
+        ["sortfield","sortorder","page"].forEach(function(k){
+          if(urlParams.has(k)) form.append($("<input>").attr({type:"hidden",name:k,"class":"cmfix-sort-param"}).val(urlParams.get(k)));
+        });
+        cmfixGetCustomParams().forEach(function(p){
+          form.append($("<input>").attr({type:"hidden",name:p.n,"class":"cmfix-sort-param"}).val(p.v));
+        });
+        form.submit();
+      });
+    });
+  });
+})(jQuery);
+</script>';
+
+		$this->resprints = $out;
 		return 0;
 	}
 

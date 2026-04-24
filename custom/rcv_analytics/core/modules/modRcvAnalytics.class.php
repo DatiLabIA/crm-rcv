@@ -20,16 +20,20 @@ class modRcvAnalytics extends DolibarrModules
         $this->rights_class = 'rcv_analytics';
         $this->family = "crm";
         $this->module_position = '95';
+
+        // name → strtolower del segmento tras MAIN_MODULE_ → clave en $conf->modules
+        // 'RcvAnalytics' → const MAIN_MODULE_RCVANALYTICS → $conf->modules['rcvanalytics']
         $this->name = preg_replace('/^mod/i', '', get_class($this));
+
         $this->description = "Analíticas avanzadas de pacientes y consultas";
         $this->descriptionlong = "Módulo de reportes e inteligencia de negocios sobre pacientes, consultas extendidas, adherencias, medicamentos, EPS, operadores logísticos y más.";
         $this->version = '1.0.0';
-        $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
+        $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name); // MAIN_MODULE_RCVANALYTICS
         $this->picto = 'stats';
         $this->editor_name = 'DatiLab';
         $this->editor_url = 'https://www.datilab.com';
 
-        $this->depends = array('modCabinetMed', 'modCabinetMedExtCons');
+        $this->depends = array();
         $this->requiredby = array();
         $this->conflictwith = array();
         $this->phpmin = array(7, 4);
@@ -59,41 +63,40 @@ class modRcvAnalytics extends DolibarrModules
         $this->rights[$r][4] = 'export';
 
         // Menus
+        // isModEnabled($x) → $conf->modules[strtolower($x)]
+        // $this->name = 'RcvAnalytics' → MAIN_MODULE_RCVANALYTICS → $conf->modules['rcvanalytics']
+        // Por tanto: isModEnabled("rcvanalytics")  ← todo minúsculas, sin guion bajo
         $this->menu = array();
         $r = 0;
 
-        // ── Entrada TOP en barra de menú principal ──────────────────────────
         $this->menu[$r] = array(
             'fk_menu'  => 0,
             'type'     => 'top',
             'titre'    => 'Analíticas RCV',
-            'prefix'   => img_picto('', 'stats', 'class="pictofixedwidth"'),
             'mainmenu' => 'rcv_analytics',
             'url'      => '/custom/rcv_analytics/index.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 85,
             'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->rights->rcv_analytics->read',
+            'perms'    => '$user->hasRight("rcv_analytics", "read")',
             'target'   => '',
-            'user'     => 2,
+            'user'     => 0,
         );
         $r++;
 
-        // ── Submenú izquierdo ────────────────────────────────────────────────
         $this->menu[$r] = array(
             'fk_menu'  => 'fk_mainmenu=rcv_analytics',
             'type'     => 'left',
             'titre'    => 'Dashboard',
-            'prefix'   => img_picto('', 'stats', 'class="paddingright pictofixedwidth"'),
             'mainmenu' => 'rcv_analytics',
             'leftmenu' => 'rcv_analytics_dashboard',
             'url'      => '/custom/rcv_analytics/index.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 10,
             'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->rights->rcv_analytics->read',
+            'perms'    => '$user->hasRight("rcv_analytics", "read")',
             'target'   => '',
-            'user'     => 2,
+            'user'     => 0,
         );
         $r++;
 
@@ -101,16 +104,15 @@ class modRcvAnalytics extends DolibarrModules
             'fk_menu'  => 'fk_mainmenu=rcv_analytics',
             'type'     => 'left',
             'titre'    => 'Pacientes',
-            'prefix'   => img_picto('', 'user', 'class="paddingright pictofixedwidth"'),
             'mainmenu' => 'rcv_analytics',
             'leftmenu' => 'rcv_analytics_patients',
             'url'      => '/custom/rcv_analytics/patients.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 20,
             'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->rights->rcv_analytics->read',
+            'perms'    => '$user->hasRight("rcv_analytics", "read")',
             'target'   => '',
-            'user'     => 2,
+            'user'     => 0,
         );
         $r++;
 
@@ -118,16 +120,15 @@ class modRcvAnalytics extends DolibarrModules
             'fk_menu'  => 'fk_mainmenu=rcv_analytics',
             'type'     => 'left',
             'titre'    => 'Consultas',
-            'prefix'   => img_picto('', 'action', 'class="paddingright pictofixedwidth"'),
             'mainmenu' => 'rcv_analytics',
             'leftmenu' => 'rcv_analytics_consultations',
             'url'      => '/custom/rcv_analytics/consultations.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 30,
             'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->rights->rcv_analytics->read',
+            'perms'    => '$user->hasRight("rcv_analytics", "read")',
             'target'   => '',
-            'user'     => 2,
+            'user'     => 0,
         );
         $r++;
 
@@ -135,16 +136,15 @@ class modRcvAnalytics extends DolibarrModules
             'fk_menu'  => 'fk_mainmenu=rcv_analytics',
             'type'     => 'left',
             'titre'    => 'Exportar datos',
-            'prefix'   => img_picto('', 'export', 'class="paddingright pictofixedwidth"'),
             'mainmenu' => 'rcv_analytics',
             'leftmenu' => 'rcv_analytics_export',
             'url'      => '/custom/rcv_analytics/export.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 50,
             'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->rights->rcv_analytics->export',
+            'perms'    => '$user->hasRight("rcv_analytics", "export")',
             'target'   => '',
-            'user'     => 2,
+            'user'     => 0,
         );
     }
 

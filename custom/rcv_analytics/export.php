@@ -207,6 +207,91 @@ if ($action === 'export' || !empty($exportType)) {
             }
             break;
 
+        // ── LISTADO PLANO DE PACIENTES ────────────────────────────────────
+        case 'patients_list':
+            $filename = 'pacientes_'.$dateStr.'.xlsx';
+            $ws = $spreadsheet->getActiveSheet();
+            $ws->setTitle('Pacientes');
+
+            $columns = array(
+                'nombre'               => 'Nombre',
+                'tipo_de_documento'    => 'Tipo Documento',
+                'n_documento'          => 'N° Documento',
+                'birthdate'            => 'Fecha Nacimiento',
+                'email'                => 'Email',
+                'phone'                => 'Teléfono',
+                'eps'                  => 'EPS',
+                'regimen'              => 'Régimen',
+                'tipo_de_afiliacion'   => 'Tipo Afiliación',
+                'medicamento'          => 'Medicamento',
+                'concentracion'        => 'Concentración',
+                'operador_logistico'   => 'Operador Logístico',
+                'sede_operador_logistico' => 'Sede Operador',
+                'programa'             => 'Programa',
+                'estado_del_paciente'  => 'Estado Paciente',
+                'estado_vital'         => 'Estado Vital',
+                'ips_primaria'         => 'IPS Primaria',
+                'medico_tratante'      => 'Médico Tratante',
+                'tipo_de_poblacion'    => 'Tipo Población',
+                'diagnostico'          => 'Diagnóstico',
+                'departamento'         => 'Departamento',
+                'ciudad'               => 'Ciudad',
+                'fecha_creacion'       => 'Fecha Creación',
+                'total_consultas'      => 'Total Consultas',
+                'ultima_consulta'      => 'Última Consulta',
+            );
+
+            // Encabezados
+            $col = 1;
+            foreach ($columns as $label) {
+                $ws->setCellValueByColumnAndRow($col, 1, $label);
+                $col++;
+            }
+            $ws->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($columns)) . '1')
+               ->applyFromArray($styleHeader);
+
+            // Datos
+            $exportFilters = $cleanFilters;
+            if (!empty($exportFilters['date_start'])) { $exportFilters['patient_date_start'] = $exportFilters['date_start']; unset($exportFilters['date_start']); }
+            if (!empty($exportFilters['date_end']))   { $exportFilters['patient_date_end']   = $exportFilters['date_end'];   unset($exportFilters['date_end']); }
+            $engine->setFilters($exportFilters);
+            $patients = $engine->getPatientsForExport();
+            $row = 2;
+            foreach ($patients as $p) {
+                $col = 1;
+                foreach (array_keys($columns) as $field) {
+                    $val = $p[$field] ?? '';
+                    if ($field === 'fecha_creacion' || $field === 'ultima_consulta') {
+                        $val = $val ? dol_print_date($db->jdate($val), 'dayrfc') : '';
+                    } elseif ($field === 'birthdate') {
+                        $val = $val ? dol_print_date($db->jdate($val), 'dayrfc') : '';
+                    }
+                    $ws->setCellValueByColumnAndRow($col, $row, $val);
+                    if ($field === 'total_consultas') {
+                        $ws->getStyleByColumnAndRow($col, $row)->applyFromArray($styleNumber);
+                    } else {
+                        $ws->getStyleByColumnAndRow($col, $row)->applyFromArray($styleData);
+                    }
+                    $col++;
+                }
+                // Alternar color de fila
+                if ($row % 2 === 0) {
+                    $ws->getStyle('A'.$row.':'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($columns)).$row)
+                       ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                       ->getStartColor()->setARGB('FFF8FAFC');
+                }
+                $row++;
+            }
+
+            // Ajuste automático de ancho de columnas
+            foreach (range(1, count($columns)) as $c) {
+                $ws->getColumnDimensionByColumn($c)->setAutoSize(true);
+            }
+
+            // Fijar fila de encabezado
+            $ws->freezePane('A2');
+            break;
+
         // ── CONSULTAS ────────────────────────────────────────────────────
         case 'consultations':
             $filename = 'consultas_'.$dateStr.'.xlsx';
@@ -332,9 +417,10 @@ print '<h4 style="margin:0 0 8px">'.$langs->trans('TipoExportacion').'</h4>';
 print '<div style="display:flex;gap:12px;flex-wrap:wrap">';
 
 $exports = array(
-    'patients'      => array('icon' => '👥', 'label' => 'Pacientes',  'desc' => '9 hojas: EPS, Medicamento, Operador, Estado, Programa, Diagnóstico, Población, Régimen, Afiliación'),
+    'patients_list' => array('icon' => '👥', 'label' => 'Listado de Pacientes', 'desc' => '1 hoja: una fila por paciente con todos sus datos'),
+    'patients'      => array('icon' => '📊', 'label' => 'Estadísticas Pacientes',  'desc' => '9 hojas: EPS, Medicamento, Operador, Estado, Programa, Diagnóstico, Población, Régimen, Afiliación'),
     'consultations' => array('icon' => '📋', 'label' => 'Consultas',  'desc' => '2 hojas: Distribución por tipo + Evolución temporal'),
-    'adherencia'    => array('icon' => '📊', 'label' => 'Adherencia', 'desc' => '1 hoja: Cumplimiento + Pacientes únicos'),
+    'adherencia'    => array('icon' => '📈', 'label' => 'Adherencia', 'desc' => '1 hoja: Cumplimiento + Pacientes únicos'),
 );
 foreach ($exports as $val => $info) {
     print '<label style="display:flex;align-items:flex-start;gap:8px;padding:12px 16px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;min-width:220px">';

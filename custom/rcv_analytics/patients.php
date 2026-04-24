@@ -31,19 +31,26 @@ $filters = array();
 if (!$button_removefilter) {
     $filters['date_start']          = $_date_start_ts ? dol_print_date($_date_start_ts, 'dayrfc') : '';
     $filters['date_end']            = $_date_end_ts   ? dol_print_date($_date_end_ts,   'dayrfc') : '';
-    $filters['medicamento']         = GETPOST('filter_medicamento', 'alpha');
-    $filters['eps']                 = GETPOST('filter_eps', 'alpha');
-    $filters['operador_logistico']  = GETPOST('filter_operador_logistico', 'alpha');
-    $filters['tipo_de_poblacion']   = GETPOST('filter_tipo_de_poblacion', 'alpha');
-    $filters['programa']            = GETPOST('filter_programa', 'alpha');
-    $filters['diagnostico']         = GETPOST('filter_diagnostico', 'alpha');
-    $filters['ips_primaria']        = GETPOST('filter_ips_primaria', 'alpha');
-    $filters['estado_del_paciente'] = GETPOST('filter_estado_del_paciente', 'alpha');
+    $filters['medicamento']         = GETPOST('filter_medicamento', 'array');
+    $filters['eps']                 = GETPOST('filter_eps', 'array');
+    $filters['operador_logistico']  = GETPOST('filter_operador_logistico', 'array');
+    $filters['tipo_de_poblacion']   = GETPOST('filter_tipo_de_poblacion', 'array');
+    $filters['programa']            = GETPOST('filter_programa', 'array');
+    $filters['diagnostico']         = GETPOST('filter_diagnostico', 'array');
+    $filters['ips_primaria']        = GETPOST('filter_ips_primaria', 'array');
+    $filters['estado_del_paciente'] = GETPOST('filter_estado_del_paciente', 'array');
+    $filters['regimen']             = GETPOST('filter_regimen', 'array');
+    $filters['medico_tratante']     = GETPOST('filter_medico_tratante', 'array');
+    $filters['departamento']        = GETPOST('filter_departamento', 'array');
+    $filters['ciudad']              = GETPOST('filter_ciudad', 'array');
     $filters['patient_date_start']  = $_date_start_ts ? dol_print_date($_date_start_ts, 'dayrfc') : '';
     $filters['patient_date_end']    = $_date_end_ts   ? dol_print_date($_date_end_ts,   'dayrfc') : '';
 }
 
-$cleanFilters = array_filter($filters, function ($v) { return $v !== '' && $v !== null; });
+$cleanFilters = array_filter($filters, function ($v) {
+    if (is_array($v)) return !empty(array_filter($v, 'strlen'));
+    return $v !== '' && $v !== null;
+});
 $engine->setFilters($cleanFilters);
 
 // Opciones para filtros
@@ -54,10 +61,19 @@ $optTipoPob      = $engine->getUniqueFieldValues('tipo_de_poblacion');
 $optProgramas    = $engine->getUniqueFieldValues('programa');
 $optDiagnosticos = $engine->getUniqueFieldValues('diagnostico');
 $optIps          = $engine->getUniqueFieldValues('ips_primaria');
-$optEstados      = $engine->getUniqueFieldValues('estado_del_paciente');
+$optEstados          = $engine->getUniqueFieldValues('estado_del_paciente');
+$optRegimen          = $engine->getUniqueFieldValues('regimen');
+$optMedicoTratante   = $engine->getUniqueFieldValues('medico_tratante');
+$optDepartamentos    = $engine->getUniqueDepartamentos();
+$optCiudades         = $engine->getUniqueCiudades();
 
 // Distribuciones agregadas — no se devuelven datos individuales de pacientes
 $totalPacientes = $engine->countPatients();
+
+// Gráficas de progresión temporal (respetan todos los filtros activos, incluida fecha)
+$distByYear    = $engine->getPatientsOverTime('year');
+$distByMonth   = $engine->getPatientsOverTime('month');
+$periodSummary = $engine->getPatientsPeriodSummary();
 $distEps        = $engine->getPatientDistributionBy('eps');
 $distMed        = $engine->getPatientDistributionBy('medicamento');
 $distOp         = $engine->getPatientDistributionBy('operador_logistico');
@@ -67,6 +83,8 @@ $distDiag       = $engine->getPatientDistributionBy('diagnostico');
 $distTipoPob    = $engine->getPatientDistributionBy('tipo_de_poblacion');
 $distRegimen    = $engine->getPatientDistributionBy('regimen');
 $distAfiliacion = $engine->getPatientDistributionBy('tipo_de_afiliacion');
+$distDepto      = $engine->getPatientsByDepartamento();
+$distCiudad     = $engine->getPatientsByCiudad();
 
 llxHeader('', $langs->trans('PacientesAnaliticas'), '', '', 0, 0,
     array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js'),
@@ -85,15 +103,20 @@ print '<div class="rcv-filter-item"><label>'.$langs->trans('FechaCreacionDesde')
 print '<div class="rcv-filter-item"><label>'.$langs->trans('FechaCreacionHasta').'</label>'
     .$form->selectDate($_date_end_ts ?: -1, 'filter_date_end', 0, 0, 1, '', 1, 0).'</div>';
 print '</div>';
+rcv_print_date_presets();
 print '<div class="rcv-filter-grid">';
-rcv_print_filter_select('filter_eps',                $langs->trans('EPS'),               $optEps,          $filters['eps'] ?? '');
-rcv_print_filter_select('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos, $filters['medicamento'] ?? '');
-rcv_print_filter_select('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,   $filters['operador_logistico'] ?? '');
-rcv_print_filter_select('filter_programa',           $langs->trans('Programa'),          $optProgramas,    $filters['programa'] ?? '');
-rcv_print_filter_select('filter_diagnostico',        $langs->trans('Diagnostico'),       $optDiagnosticos, $filters['diagnostico'] ?? '');
-rcv_print_filter_select('filter_estado_del_paciente',$langs->trans('EstadoPaciente'),    $optEstados,      $filters['estado_del_paciente'] ?? '');
-rcv_print_filter_select('filter_ips_primaria',       $langs->trans('IPSPrimaria'),       $optIps,          $filters['ips_primaria'] ?? '');
-rcv_print_filter_select('filter_tipo_de_poblacion',  $langs->trans('TipoPoblacion'),     $optTipoPob,      $filters['tipo_de_poblacion'] ?? '');
+rcv_print_filter_multisel('filter_eps',                $langs->trans('EPS'),               $optEps,          $filters['eps'] ?? array());
+rcv_print_filter_multisel('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos, $filters['medicamento'] ?? array());
+rcv_print_filter_multisel('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,   $filters['operador_logistico'] ?? array());
+rcv_print_filter_multisel('filter_programa',           $langs->trans('Programa'),          $optProgramas,    $filters['programa'] ?? array());
+rcv_print_filter_multisel('filter_diagnostico',        $langs->trans('Diagnostico'),       $optDiagnosticos, $filters['diagnostico'] ?? array());
+rcv_print_filter_multisel('filter_estado_del_paciente',$langs->trans('EstadoPaciente'),    $optEstados,      $filters['estado_del_paciente'] ?? array());
+rcv_print_filter_multisel('filter_ips_primaria',       $langs->trans('IPSPrimaria'),       $optIps,          $filters['ips_primaria'] ?? array());
+rcv_print_filter_multisel('filter_tipo_de_poblacion',  $langs->trans('TipoPoblacion'),     $optTipoPob,           $filters['tipo_de_poblacion'] ?? array());
+rcv_print_filter_multisel('filter_regimen',            $langs->trans('Regimen'),            $optRegimen,           $filters['regimen'] ?? array());
+rcv_print_filter_multisel('filter_medico_tratante',    $langs->trans('MedicoTratante'),     $optMedicoTratante,    $filters['medico_tratante'] ?? array());
+rcv_print_filter_multisel('filter_departamento',       $langs->trans('Departamento'),       $optDepartamentos,     $filters['departamento'] ?? array());
+rcv_print_filter_multisel('filter_ciudad',             $langs->trans('Ciudad'),             $optCiudades,          $filters['ciudad'] ?? array());
 print '</div>';
 print '<div class="rcv-filter-actions">';
 print '<input type="submit" class="butAction" name="button_search" value="'.$langs->trans('Filtrar').'">';
@@ -101,10 +124,35 @@ print '<input type="submit" class="butActionDelete" name="button_removefilter" v
 print '</div>';
 print '</div>';
 print '</form>';
+rcv_print_multisel_js();
 
 // ─── KPI total ─────────────────────────────────────────────────────────────
 print '<div class="rcv-kpi-row">';
 rcv_kpi_card($langs->trans('TotalPacientes'), $totalPacientes, 'user', '#2563eb');
+print '</div>';
+
+// ─── Progresión temporal ───────────────────────────────────────────────────
+print '<div class="rcv-charts-row">';
+
+print '<div class="rcv-chart-box">';
+print '<h3>Pacientes por año</h3>';
+print '<canvas id="chartByYear"></canvas>';
+print '</div>';
+
+print '<div class="rcv-chart-box">';
+print '<h3>Resumen del período</h3>';
+print '<canvas id="chartPeriodSummary"></canvas>';
+print '</div>';
+
+print '</div>';
+
+print '<div class="rcv-charts-row">';
+
+print '<div class="rcv-chart-box rcv-chart-wide">';
+print '<h3>Evolución mensual</h3>';
+print '<canvas id="chartByMonth"></canvas>';
+print '</div>';
+
 print '</div>';
 
 // ─── Bloques de distribución (tabla + chart por dimensión) ─────────────────
@@ -146,6 +194,8 @@ rcv_dist_block($langs->trans('Diagnostico'),             $distDiag,       'chart
 rcv_dist_block($langs->trans('TipoPoblacion'),           $distTipoPob,    'chartTipoPob',    'doughnut');
 rcv_dist_block($langs->trans('Regimen'),                 $distRegimen,    'chartRegimen',    'doughnut');
 rcv_dist_block($langs->trans('TipoAfiliacion'),          $distAfiliacion, 'chartAfiliacion', 'doughnut');
+rcv_dist_block($langs->trans('PacientesPorDepartamento'), $distDepto,      'chartDepto');
+rcv_dist_block($langs->trans('PacientesPorCiudad'),       $distCiudad,     'chartCiudad');
 
 // ─── Exportar ──────────────────────────────────────────────────────────────
 print '<div style="margin:10px 0">';
@@ -153,6 +203,9 @@ print '<a class="butAction" href="'.dol_buildpath('/rcv_analytics/export.php', 1
 print '</div>';
 
 // ─── Chart.js: renderizar gráficas ────────────────────────────────────────
+$jByYear      = json_encode(rcv_chart_data($distByYear,    'periodo',   'total'));
+$jPeriodSum   = json_encode(rcv_chart_data($periodSummary, 'label',     'total'));
+$jByMonth     = json_encode(rcv_chart_data($distByMonth,   'periodo',   'total'));
 $jEps        = json_encode(rcv_chart_data($distEps,        'categoria', 'total'));
 $jMed        = json_encode(rcv_chart_data($distMed,        'categoria', 'total'));
 $jOp         = json_encode(rcv_chart_data($distOp,         'categoria', 'total'));
@@ -162,9 +215,14 @@ $jDiag       = json_encode(rcv_chart_data($distDiag,       'categoria', 'total')
 $jTipoPob    = json_encode(rcv_chart_data($distTipoPob,    'categoria', 'total'));
 $jRegimen    = json_encode(rcv_chart_data($distRegimen,    'categoria', 'total'));
 $jAfiliacion = json_encode(rcv_chart_data($distAfiliacion, 'categoria', 'total'));
+$jDepto      = json_encode(rcv_chart_data($distDepto,     'categoria', 'total'));
+$jCiudad     = json_encode(rcv_chart_data($distCiudad,    'categoria', 'total'));
 
 print '<script>
 document.addEventListener("DOMContentLoaded", function() {
+    rcvRenderBarChart("chartByYear",      '.$jByYear.',     "Pacientes");
+    rcvRenderBarChart("chartPeriodSummary",'.$jPeriodSum.', "Pacientes");
+    rcvRenderBarChart("chartByMonth",     '.$jByMonth.',    "Pacientes");
     rcvRenderBarChart("chartEps",         '.$jEps.',        "Pacientes");
     rcvRenderBarChart("chartMed",         '.$jMed.',        "Pacientes");
     rcvRenderBarChart("chartOp",          '.$jOp.',         "Pacientes");
@@ -174,6 +232,8 @@ document.addEventListener("DOMContentLoaded", function() {
     rcvRenderDoughnutChart("chartTipoPob",'.$jTipoPob.');
     rcvRenderDoughnutChart("chartRegimen",'.$jRegimen.');
     rcvRenderDoughnutChart("chartAfiliacion",'.$jAfiliacion.');
+    rcvRenderBarChart("chartDepto",       '.$jDepto.',      "Pacientes");
+    rcvRenderBarChart("chartCiudad",      '.$jCiudad.',     "Pacientes");
 });
 </script>';
 

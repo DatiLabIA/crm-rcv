@@ -59,3 +59,8 @@ DispensationAutoExpeditionNote = Envío creado automáticamente desde orden de v
 DispensationAutoExpeditionCreated = Envío %s creado y validado automáticamente (stock descontado)
 DispensationAutoExpeditionDraft = Envío %s creado como borrador con el lote disponible — revísalo y valídalo manualmente para confirmar la salida de medicamento
 Unknown = desconocido
+
+#
+# Export patients menu
+#
+ExportarPacientes = Exportar pacientes

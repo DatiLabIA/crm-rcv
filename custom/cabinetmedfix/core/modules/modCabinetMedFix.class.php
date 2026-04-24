@@ -85,7 +85,7 @@ class modCabinetMedFix extends DolibarrModules
 			'triggers' => 1,
 			'login' => 0,
 			'substitutions' => 0,
-			'menus' => 0,
+			'menus' => 1,
 			'tpl' => 0,
 			'barcode' => 0,
 			'models' => 0,
@@ -159,6 +159,22 @@ class modCabinetMedFix extends DolibarrModules
 		// Main menu entries to add
 		$this->menu = array();
 		$r = 0;
+
+		// Exportar pacientes — sub-item under Patients > Patients
+		$this->menu[$r] = array(
+			'fk_menu'  => 'fk_mainmenu=patients,fk_leftmenu=patients',
+			'type'     => 'left',
+			'titre'    => 'ExportarPacientes',
+			'mainmenu' => 'patients',
+			'leftmenu' => 'cabinetmedfix_exportpacientes',
+			'url'      => '/cabinetmedfix/export_patients.php',
+			'langs'    => 'cabinetmedfix@cabinetmedfix',
+			'position' => 160,
+			'enabled'  => 'isModEnabled("cabinetmed")',
+			'perms'    => '$user->hasRight("cabinetmed", "read")',
+			'user'     => 2,
+		);
+		$r++;
 	}
 
 	/**
