@@ -95,6 +95,7 @@ class RcvAnalyticsEngine
             5 => 'Población Raizal', 6 => 'Población Palenquera',
             7 => 'Población Rrom o Gitana', 8 => 'Población Rural',
             9 => 'Población Urbana', 10 => 'Población Migrante',
+            11 => 'Ninguno',
         ),
         'tipo_de_documento' => array(
             1 => 'Registro Civil', 2 => 'Tarjeta de Identidad',
@@ -373,7 +374,7 @@ class RcvAnalyticsEngine
                 .' FROM '.MAIN_DB_PREFIX.'societe s'
                 .$built['joins']
                 .$built['where']
-                .' GROUP BY se.'.$field
+                .' GROUP BY categoria'
                 .' ORDER BY total DESC';
 
             return $this->fetchRows($sql);
@@ -561,7 +562,7 @@ class RcvAnalyticsEngine
             $case .= ' ELSE \'(Sin dato)\' END';
             $labelJoin = '';
             $labelExpr = $case;
-            $groupExpr = 'se.'.$field;
+            $groupExpr = 'categoria';
         } else {
             $labelJoin = '';
             $labelExpr = 'COALESCE(NULLIF(TRIM(se.'.$field.'), \'\'), \'(Sin dato)\')';
@@ -908,31 +909,36 @@ class RcvAnalyticsEngine
         $origFilters    = $this->filters;
         $filtersNoDates = array_diff_key($origFilters, array_flip(array('patient_date_start', 'patient_date_end')));
 
-        // ── 1. Período: desde inicio del filtro (o todo el tiempo) hasta hoy ──
+        // Fecha de referencia: date_end del filtro si está activo, si no hoy
+        $refDate  = !empty($origFilters['patient_date_end']) ? $origFilters['patient_date_end'] : date('Y-m-d');
+        $refYear  = substr($refDate, 0, 4);
+        $refMonth = substr($refDate, 5, 2);
+
+        // ── 1. Período: desde date_start (o todo el tiempo) hasta refDate ──
         $this->filters = $filtersNoDates;
         if (!empty($origFilters['patient_date_start'])) {
             $this->filters['patient_date_start'] = $origFilters['patient_date_start'];
         }
-        $this->filters['patient_date_end'] = date('Y-m-d');
+        $this->filters['patient_date_end'] = $refDate;
         $built = $this->buildWhere(false);
         $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
         $totalPeriod = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
         $labelPeriod = !empty($origFilters['patient_date_start'])
             ? 'Desde '.$origFilters['patient_date_start']
-            : 'Acumulado a hoy';
+            : 'Acumulado a '.$refDate;
 
-        // ── 2. Mes actual ─────────────────────────────────────────────────────
+        // ── 2. Último mes del período ─────────────────────────────────────────
         $this->filters = $filtersNoDates;
-        $this->filters['patient_date_start'] = date('Y-m-01');
-        $this->filters['patient_date_end']   = date('Y-m-d');
+        $this->filters['patient_date_start'] = $refYear.'-'.$refMonth.'-01';
+        $this->filters['patient_date_end']   = $refDate;
         $built = $this->buildWhere(false);
         $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
         $totalMonth = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
 
-        // ── 3. Año actual ─────────────────────────────────────────────────────
+        // ── 3. Año del período ────────────────────────────────────────────────
         $this->filters = $filtersNoDates;
-        $this->filters['patient_date_start'] = date('Y-01-01');
-        $this->filters['patient_date_end']   = date('Y-m-d');
+        $this->filters['patient_date_start'] = $refYear.'-01-01';
+        $this->filters['patient_date_end']   = $refDate;
         $built = $this->buildWhere(false);
         $row   = $this->fetchRows('SELECT COUNT(DISTINCT s.rowid) AS total FROM '.MAIN_DB_PREFIX.'societe s'.$built['joins'].$built['where']);
         $totalYear = !empty($row[0]['total']) ? (int)$row[0]['total'] : 0;
@@ -940,9 +946,9 @@ class RcvAnalyticsEngine
         $this->filters = $origFilters;
 
         return array(
-            array('label' => $labelPeriod,                    'total' => $totalPeriod),
-            array('label' => 'Mes actual ('.date('Y-m').')',  'total' => $totalMonth),
-            array('label' => 'Año actual ('.date('Y').')',    'total' => $totalYear),
+            array('label' => $labelPeriod,                     'total' => $totalPeriod),
+            array('label' => 'Mes '.$refYear.'-'.$refMonth,    'total' => $totalMonth),
+            array('label' => 'Año '.$refYear,                  'total' => $totalYear),
         );
     }
 

@@ -70,7 +70,7 @@ function rcv_print_inline_styles()
 .rcv-kpi-label{font-size:.78em;color:#64748b;margin-top:4px}
 
 /* ── Gráficas – 2 columnas desktop ── */
-.rcv-charts-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0;width:100%}
+.rcv-charts-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0;width:100%;align-items:start}
 .rcv-chart-box{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);padding:14px 16px;min-width:0;overflow:hidden;display:flex;flex-direction:column;height:320px;box-sizing:border-box}
 .rcv-chart-box.rcv-chart-wide{grid-column:1/-1;height:340px}
 .rcv-chart-box h3{margin:0 0 6px;font-size:.88em;font-weight:600;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -104,7 +104,8 @@ foreach (array('month' => 'Mes', 'week' => 'Semana', 'year' => 'Año') as $val =
 print '</select></div>';
 print '</div>';
 rcv_print_date_presets();
-print '<div class="rcv-filter-grid">';      $langs->trans('TipoAtencion'),      $optTiposAtencion, $filters['tipo_atencion'] ?? array());
+print '<div class="rcv-filter-grid">';
+rcv_print_filter_multisel('filter_tipo_atencion',      $langs->trans('TipoAtencion'),      $optTiposAtencion, $filters['tipo_atencion'] ?? array());
 rcv_print_filter_multisel('filter_eps',                $langs->trans('EPS'),               $optEps,           $filters['eps'] ?? array());
 rcv_print_filter_multisel('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos,  $filters['medicamento'] ?? array());
 rcv_print_filter_multisel('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,    $filters['operador_logistico'] ?? array());
