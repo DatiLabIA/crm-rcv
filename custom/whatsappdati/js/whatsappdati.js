@@ -1475,11 +1475,13 @@ var WhatsAppChat = {
 			return;
 		}
 
-		// Collect variable values in order
-		var params = [];
+		// Collect variable values keyed by variable number (prevents ordering bug
+		// when {{2}} appears before {{1}} in the template text)
+		var paramsMap = {};
 		var valid = true;
 		$('.whatsapp-var-input').each(function() {
 			var val = $(this).val().trim();
+			var vn = parseInt($(this).data('var-num'), 10);
 			if (!val) {
 				$(this).addClass('whatsapp-var-error');
 				$(this).attr('aria-invalid', 'true');
@@ -1488,8 +1490,13 @@ var WhatsAppChat = {
 				$(this).removeClass('whatsapp-var-error');
 				$(this).removeAttr('aria-invalid');
 			}
-			params.push(val);
+			if (vn > 0) paramsMap[vn] = val;
 		});
+		// Build ordered array: params[0] = {{1}}, params[1] = {{2}}, etc.
+		var maxVar = 0;
+		$.each(paramsMap, function(k) { if (parseInt(k) > maxVar) maxVar = parseInt(k); });
+		var params = [];
+		for (var _vi = 1; _vi <= maxVar; _vi++) { params.push(paramsMap[_vi] || ''); }
 
 		// If no variables exist, params stays empty (that's fine)
 		if (!valid) {
@@ -4009,19 +4016,25 @@ var WhatsAppChat = {
 		var templateId = $('#whatsapp-newconv-template').val();
 		if (!templateId) return;
 
-		// Validate variable values
-		var params = [];
+		// Collect variable values keyed by variable number (prevents ordering bug
+		// when {{2}} appears before {{1}} in the template text)
+		var ncParamsMap = {};
 		var valid = true;
 		$('.whatsapp-newconv-var-input').each(function() {
 			var val = $(this).val().trim();
+			var vn = parseInt($(this).data('var-num'), 10);
 			if (!val) {
 				$(this).css('border-color', '#dc3545');
 				valid = false;
 			} else {
 				$(this).css('border-color', '');
 			}
-			params.push(val);
+			if (vn > 0) ncParamsMap[vn] = val;
 		});
+		var ncMaxVar = 0;
+		$.each(ncParamsMap, function(k) { if (parseInt(k) > ncMaxVar) ncMaxVar = parseInt(k); });
+		var params = [];
+		for (var _vi = 1; _vi <= ncMaxVar; _vi++) { params.push(ncParamsMap[_vi] || ''); }
 		if (!valid) return;
 
 		var lineId = $('#whatsapp-newconv-line').val() || 0;
@@ -4450,10 +4463,16 @@ var BulkSend = {
 		var recipients = [];
 		var params = [];
 
-		// Gather variable values
+		// Gather variable values keyed by variable number (prevents ordering bug
+		// when {{2}} appears before {{1}} in the template text)
+		var bulkParamsMap = {};
 		$('.bulk-var-input').each(function() {
-			params.push($(this).val() || '');
+			var vn = parseInt($(this).data('var'), 10);
+			if (vn > 0) bulkParamsMap[vn] = $(this).val() || '';
 		});
+		var bulkMaxVar = 0;
+		$.each(bulkParamsMap, function(k) { if (parseInt(k) > bulkMaxVar) bulkMaxVar = parseInt(k); });
+		for (var _vi = 1; _vi <= bulkMaxVar; _vi++) { params.push(bulkParamsMap[_vi] || ''); }
 
 		// Build recipients array
 		$.each(BulkSend.selectedRecipients, function(id, r) {

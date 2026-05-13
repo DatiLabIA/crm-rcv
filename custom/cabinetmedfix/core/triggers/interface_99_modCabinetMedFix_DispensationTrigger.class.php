@@ -518,7 +518,7 @@ class InterfaceDispensationTrigger extends DolibarrTriggers
 			$result = $expedition->addline_batch($dbatch);
 			if ($result < 0) {
 				$error++;
-				$this->errors = array_merge($this->errors, $expedition->errors);
+				$this->errors = array_merge((array) $this->errors, $expedition->errors);
 				dol_syslog("DispensationTrigger: Failed to add expedition batch line: ".implode(', ', $expedition->errors), LOG_ERR);
 				break;
 			}
@@ -630,7 +630,7 @@ class InterfaceDispensationTrigger extends DolibarrTriggers
 		}
 
 		if (!empty($errors)) {
-			$this->errors = array_merge($this->errors, $errors);
+			$this->errors = array_merge((array) $this->errors, $errors);
 			return -1;
 		}
 

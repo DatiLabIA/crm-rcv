@@ -51,6 +51,13 @@ foreach ($_raw_eps as $_e) {
     if ($_e > 0) $filter_eps[] = $_e;
 }
 
+$filter_statuses = array();
+$_raw_statuses = isset($_POST['filter_status']) ? (array) $_POST['filter_status'] : array();
+foreach ($_raw_statuses as $_s) {
+    $_s = (int) $_s;
+    if (in_array($_s, array(0, 1, 2))) $filter_statuses[] = $_s;
+}
+
 // Date filters
 $filter_date_start = dol_mktime(0, 0, 0,
     GETPOSTINT('date_startmonth'), GETPOSTINT('date_startday'), GETPOSTINT('date_startyear'));
@@ -72,6 +79,10 @@ $status_labels = array(0 => 'En progreso', 1 => 'Completada', 2 => 'Cancelada');
  * ============================================================
  */
 if ($action === 'export' && !empty($filter_types)) {
+
+    // Incrementar límites para exportaciones grandes
+    @ini_set('memory_limit', '512M');
+    @set_time_limit(300);
 
     // --- 1. Resolve type info (multiple) ---
     $type_labels_map = array(); // code => label
@@ -113,18 +124,58 @@ if ($action === 'export' && !empty($filter_types)) {
     }
 
     // --- 3. Main data query ---
-    $sql  = "SELECT c.rowid, c.date_start, c.date_end, c.tipo_atencion, c.status,";
+
+    // Pre-cargar mapa de usuarios asignados (evita GROUP_CONCAT sobre sets grandes)
+    $assigned_users_map = array();
+    {
+        $sql_au  = "SELECT eu.fk_extcons, TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,''))) AS fullname";
+        $sql_au .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_users eu";
+        $sql_au .= " INNER JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = eu.fk_user";
+        $res_au = $db->query($sql_au);
+        while ($res_au && $au = $db->fetch_object($res_au)) {
+            $id = (int) $au->fk_extcons;
+            if (!isset($assigned_users_map[$id])) $assigned_users_map[$id] = array();
+            $name = trim($au->fullname);
+            if ($name !== '') $assigned_users_map[$id][] = $name;
+        }
+    }
+
+    // Contar filas antes de intentar construir el XLSX en memoria
+    $sql_chk  = "SELECT COUNT(DISTINCT c.rowid) AS cnt FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
+    $sql_chk .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
+    $sql_chk .= " WHERE c.entity = ".$conf->entity;
+    if (!empty($filter_types)) {
+        $chk_types = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
+        $sql_chk .= " AND c.tipo_atencion IN (".$chk_types.")";
+    }
+    if (!empty($filter_users)) {
+        $sql_chk .= " AND c.rowid IN (SELECT fk_extcons FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_users WHERE fk_user IN (".implode(',', $filter_users)."))";
+    }
+    if (!empty($filter_eps)) {
+        $sql_chk .= " AND ef.eps IN (".implode(',', $filter_eps).")";
+    }
+    if ($filter_date_start > 0) $sql_chk .= " AND c.date_start >= '".$db->idate($filter_date_start)."'";
+    if ($filter_date_end   > 0) $sql_chk .= " AND c.date_start <= '".$db->idate($filter_date_end)."'";
+    if (!empty($filter_statuses)) $sql_chk .= " AND c.status IN (".implode(',', $filter_statuses).")";
+    $res_chk = $db->query($sql_chk);
+    $xlsx_count = 0;
+    if ($res_chk) { $row_chk = $db->fetch_object($res_chk); $xlsx_count = (int) $row_chk->cnt; }
+    if ($xlsx_count > 5000) {
+        setEventMessages('El resultado tiene '.$xlsx_count.' consultas. XLSX no puede procesar más de 5 000 filas. Usa <strong>Exportar a CSV</strong>.', null, 'warnings');
+        $back = $_SERVER['PHP_SELF'].'?action=';
+        foreach ($filter_types as $ft_v) $back .= '&filter_type[]='.urlencode($ft_v);
+        header("Location: ".$back);
+        exit;
+    }
+
+    $sql  = "SELECT c.rowid, c.datec, c.tms, c.date_start, c.date_end, c.tipo_atencion, c.status,";
     $sql .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
     $sql .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad,";
     $sql .= " c.custom_data, c.note_public, c.observaciones,";
-    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
-    $sql .= " GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,'')))";
-    $sql .= "   ORDER BY u.lastname SEPARATOR ', ') AS assigned_users";
+    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula";
     $sql .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = c.fk_soc";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."cabinetmed_extcons_users eu ON eu.fk_extcons = c.rowid";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = eu.fk_user";
     $sql .= " WHERE c.entity = ".$conf->entity;
     if (!empty($filter_types)) {
         $types_in_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -145,7 +196,11 @@ if ($action === 'export' && !empty($filter_types)) {
     if ($filter_date_end > 0) {
         $sql .= " AND c.date_start <= '".$db->idate($filter_date_end)."'";
     }
-    $sql .= " GROUP BY c.rowid ORDER BY c.date_start DESC";
+    if (!empty($filter_statuses)) {
+        $statuses_in_sql = implode(',', $filter_statuses);
+        $sql .= " AND c.status IN (".$statuses_in_sql.")";
+    }
+    $sql .= " ORDER BY c.date_start DESC";
 
     $res_cons = $db->query($sql);
     if (!$res_cons) {
@@ -164,8 +219,12 @@ if ($action === 'export' && !empty($filter_types)) {
     require_once DOL_DOCUMENT_ROOT.'/includes/Psr/autoloader.php';
     require_once PHPEXCELNEW_PATH.'Spreadsheet.php';
 
-    $safe_type = preg_replace('/[^a-zA-Z0-9_-]/', '_', implode('-', $filter_types));
-    $filename  = 'consultas_'.$safe_type.'_'.dol_print_date(dol_now(), 'dayhour').'.xlsx';
+    if (count($filter_types) === 1) {
+        $safe_type = substr(preg_replace('/[^a-zA-Z0-9_-]/', '_', $filter_types[0]), 0, 30);
+    } else {
+        $safe_type = count($filter_types).'_tipos';
+    }
+    $filename = 'consultas_'.$safe_type.'_'.date('Ymd_His').'.xlsx';
 
     // Helper: clean cell value (strip HTML, decode entities)
     $cleanCell = function($value) {
@@ -182,6 +241,8 @@ if ($action === 'export' && !empty($filter_types)) {
         'Tipo de consulta',
         'Fecha inicio',
         'Fecha fin',
+        'Fecha creación',
+        'Última modificación',
         'Estado',
         'Encargado(s)',
     );
@@ -207,8 +268,10 @@ if ($action === 'export' && !empty($filter_types)) {
             isset($type_labels_map[$row->tipo_atencion]) ? $type_labels_map[$row->tipo_atencion] : $row->tipo_atencion,
             $row->date_start ? dol_print_date($db->jdate($row->date_start), 'dayhour') : '',
             $row->date_end   ? dol_print_date($db->jdate($row->date_end),   'dayhour') : '',
+            $row->datec      ? dol_print_date($db->jdate($row->datec),      'dayhour') : '',
+            $row->tms        ? dol_print_date($db->jdate($row->tms),        'dayhour') : '',
             isset($status_labels[(int)$row->status]) ? $status_labels[(int)$row->status] : '',
-            $cleanCell($row->assigned_users),
+            isset($assigned_users_map[(int)$row->rowid]) ? implode(', ', $assigned_users_map[(int)$row->rowid]) : '',
         );
 
         foreach ($field_defs as $fdef) {
@@ -264,19 +327,26 @@ if ($action === 'export' && !empty($filter_types)) {
     ));
     $sheet->getRowDimension(1)->setRowHeight(20);
 
-    // Alternate row shading on data rows
-    for ($r = 2; $r <= $numRows; $r++) {
-        if ($r % 2 === 0) {
-            $sheet->getStyle('A'.$r.':'.$lastCol.$r)
-                ->getFill()->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setRGB('EEF4FF');
+    // Alternate row shading y auto-size solo para datasets pequeños (< 10 000 filas)
+    if ($numRows <= 10000) {
+        for ($r = 2; $r <= $numRows; $r++) {
+            if ($r % 2 === 0) {
+                $sheet->getStyle('A'.$r.':'.$lastCol.$r)
+                    ->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('EEF4FF');
+            }
         }
-    }
-
-    // Auto-width: use column letter
-    for ($c = 1; $c <= $numCols; $c++) {
-        $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
-        $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        for ($c = 1; $c <= $numCols; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+    } else {
+        // Anchos fijos para exports grandes (auto-size es muy costoso en memoria)
+        $fixed_widths = array(1 => 30, 2 => 18, 3 => 22, 4 => 18, 5 => 18, 6 => 18, 7 => 18, 8 => 14, 9 => 28);
+        for ($c = 1; $c <= $numCols; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getColumnDimension($colLetter)->setWidth(isset($fixed_widths[$c]) ? $fixed_widths[$c] : 22);
+        }
     }
 
     $sheet->setAutoFilter('A1:'.$lastCol.'1');
@@ -296,6 +366,223 @@ if ($action === 'export' && !empty($filter_types)) {
 
     $writer = new XlsxWriter($spreadsheet);
     $writer->save('php://output');
+    exit;
+}
+
+/*
+ * ============================================================
+ * EXPORT CSV — streaming row-a-row, sin límite de memoria
+ * ============================================================
+ */
+if ($action === 'export_csv' && !empty($filter_types)) {
+
+    @ini_set('memory_limit', '256M');
+    @set_time_limit(300);
+
+    // --- 1. Resolver tipos ---
+    $type_labels_map = array();
+    $type_ids = array();
+    {
+        $types_escaped_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
+        $sql_type  = "SELECT t.rowid, t.code, t.label FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_types t";
+        $sql_type .= " WHERE t.code IN (".$types_escaped_sql.") AND t.entity = ".$conf->entity;
+        $res_type  = $db->query($sql_type);
+        while ($res_type && $trow = $db->fetch_object($res_type)) {
+            $type_labels_map[$trow->code] = $trow->label;
+            $type_ids[] = (int) $trow->rowid;
+        }
+    }
+
+    // --- 2. Definiciones de campos ---
+    $field_defs = array();
+    $field_names_seen = array();
+    if (!empty($type_ids)) {
+        $type_ids_str = implode(',', $type_ids);
+        $sql_fd  = "SELECT field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
+        $sql_fd .= " WHERE fk_type IN (".$type_ids_str.") AND active = 1 ORDER BY fk_type ASC, position ASC";
+        $res_fd  = $db->query($sql_fd);
+        while ($res_fd && $f = $db->fetch_object($res_fd)) {
+            if (!isset($field_names_seen[$f->field_name])) {
+                $field_defs[] = $f;
+                $field_names_seen[$f->field_name] = true;
+            }
+        }
+    }
+    $field_opts_cache = array();
+    foreach ($field_defs as $fdef) {
+        if (in_array($fdef->field_type, array('select', 'radio', 'multiselect', 'boolean', 'checkbox'))) {
+            $field_opts_cache[$fdef->field_name] = ExtConsultation::resolveFieldOptions($fdef->field_options, $db);
+        }
+    }
+
+    // --- 3a. Pre-cargar mapa de usuarios asignados (evita GROUP_CONCAT en query grande) ---
+    $assigned_users_map = array();
+    {
+        $sql_au  = "SELECT eu.fk_extcons, TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,''))) AS fullname";
+        $sql_au .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_users eu";
+        $sql_au .= " INNER JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = eu.fk_user";
+        $res_au = $db->query($sql_au);
+        while ($res_au && $au = $db->fetch_object($res_au)) {
+            $id = (int) $au->fk_extcons;
+            if (!isset($assigned_users_map[$id])) $assigned_users_map[$id] = array();
+            $name = trim($au->fullname);
+            if ($name !== '') $assigned_users_map[$id][] = $name;
+        }
+    }
+
+    // --- 3b. Query principal — sin GROUP_CONCAT ni JOINs de usuarios ---
+    $sql  = "SELECT c.rowid, c.datec, c.tms, c.date_start, c.date_end, c.tipo_atencion, c.status,";
+    $sql .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
+    $sql .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad,";
+    $sql .= " c.custom_data, c.note_public, c.observaciones,";
+    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula";
+    $sql .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = c.fk_soc";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
+    $sql .= " WHERE c.entity = ".$conf->entity;
+    if (!empty($filter_types)) {
+        $types_in_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
+        $sql .= " AND c.tipo_atencion IN (".$types_in_sql.")";
+    }
+    if (!empty($filter_users)) {
+        $users_in_sql = implode(',', $filter_users);
+        $sql .= " AND c.rowid IN (SELECT fk_extcons FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_users";
+        $sql .= " WHERE fk_user IN (".$users_in_sql."))";
+    }
+    if (!empty($filter_eps)) {
+        $eps_in_sql = implode(',', $filter_eps);
+        $sql .= " AND ef.eps IN (".$eps_in_sql.")";
+    }
+    if ($filter_date_start > 0) {
+        $sql .= " AND c.date_start >= '".$db->idate($filter_date_start)."'";
+    }
+    if ($filter_date_end > 0) {
+        $sql .= " AND c.date_start <= '".$db->idate($filter_date_end)."'";
+    }
+    if (!empty($filter_statuses)) {
+        $statuses_csv_in = implode(',', $filter_statuses);
+        $sql .= " AND c.status IN (".$statuses_csv_in.")";
+    }
+    $sql .= " ORDER BY c.date_start DESC";
+
+    // Query NO bufferizada: MySQL envía filas de a una, sin cargar todo en RAM
+    // $db->query() usa buffered mode (carga todo en memoria) — con 30k filas explota
+    if (!($db->db instanceof mysqli)) {
+        setEventMessages('Error interno: conexión de base de datos no compatible con export CSV masivo.', null, 'errors');
+        header("Location: ".$_SERVER['PHP_SELF']);
+        exit;
+    }
+    if (!$db->db->real_query($sql)) {
+        setEventMessages($db->db->error, null, 'errors');
+        header("Location: ".$_SERVER['PHP_SELF']);
+        exit;
+    }
+    $res_cons = $db->db->use_result(); // unbuffered: filas llegan de a una desde MySQL
+
+    // --- 4. Nombre del archivo ---
+    if (count($filter_types) === 1) {
+        $safe_type = substr(preg_replace('/[^a-zA-Z0-9_-]/', '_', $filter_types[0]), 0, 30);
+    } else {
+        $safe_type = count($filter_types).'_tipos';
+    }
+    $filename = 'consultas_'.$safe_type.'_'.date('Ymd_His').'.csv';
+
+    $cleanCell = function($value) {
+        if (is_array($value)) $value = implode(', ', $value);
+        $value = strip_tags((string) $value);
+        $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return trim($value);
+    };
+
+    $headers = array(
+        'Nombre del paciente',
+        'Número de documento',
+        'Tipo de consulta',
+        'Fecha inicio',
+        'Fecha fin',
+        'Fecha creación',
+        'Última modificación',
+        'Estado',
+        'Encargado(s)',
+    );
+    foreach ($field_defs as $fdef) {
+        $headers[] = $fdef->field_label;
+    }
+    $headers[] = 'Observaciones generales';
+
+    // Descartar cualquier buffer de salida de Dolibarr
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="'.$filename.'"');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    $output = fopen('php://output', 'w');
+    ignore_user_abort(true); // evita que el proceso muera si el browser cierra la conexión
+    fwrite($output, "\xEF\xBB\xBF"); // BOM UTF-8 para compatibilidad con Excel
+    fputcsv($output, $headers);
+
+    // Stream fila por fila — $res_cons es un mysqli_result unbufferizado
+    while ($row = $res_cons->fetch_object()) {
+        $custom_data = array();
+        if (!empty($row->custom_data)) {
+            $decoded = json_decode($row->custom_data, true);
+            if (is_array($decoded)) {
+                $custom_data = isset($decoded['custom_fields']) ? $decoded['custom_fields'] : $decoded;
+            }
+        }
+
+        $line = array(
+            $cleanCell($row->patient_name),
+            $cleanCell($row->patient_cedula),
+            isset($type_labels_map[$row->tipo_atencion]) ? $type_labels_map[$row->tipo_atencion] : $row->tipo_atencion,
+            $row->date_start ? dol_print_date($db->jdate($row->date_start), 'dayhour') : '',
+            $row->date_end   ? dol_print_date($db->jdate($row->date_end),   'dayhour') : '',
+            $row->datec      ? dol_print_date($db->jdate($row->datec),      'dayhour') : '',
+            $row->tms        ? dol_print_date($db->jdate($row->tms),        'dayhour') : '',
+            isset($status_labels[(int)$row->status]) ? $status_labels[(int)$row->status] : '',
+            isset($assigned_users_map[(int)$row->rowid]) ? implode(', ', $assigned_users_map[(int)$row->rowid]) : '',
+        );
+
+        foreach ($field_defs as $fdef) {
+            $val = '';
+            if (property_exists('ExtConsultation', $fdef->field_name)) {
+                $val = isset($row->{$fdef->field_name}) ? $row->{$fdef->field_name} : '';
+            } else {
+                $val = isset($custom_data[$fdef->field_name]) ? $custom_data[$fdef->field_name] : '';
+            }
+            $ft = $fdef->field_type;
+            if ($ft === 'boolean' || $ft === 'checkbox') {
+                $val = ($val && $val !== '0' && $val !== '') ? 'Sí' : 'No';
+            } elseif ($ft === 'select' || $ft === 'radio') {
+                $opts = isset($field_opts_cache[$fdef->field_name]) ? $field_opts_cache[$fdef->field_name] : array();
+                $val = isset($opts[(string)$val]) ? $opts[(string)$val] : (string)$val;
+            } elseif ($ft === 'multiselect') {
+                $opts = isset($field_opts_cache[$fdef->field_name]) ? $field_opts_cache[$fdef->field_name] : array();
+                $values = is_array($val) ? $val : (($val !== '') ? explode(',', (string)$val) : array());
+                $labels = array();
+                foreach ($values as $v) {
+                    $v = trim($v);
+                    if ($v === '') continue;
+                    $labels[] = isset($opts[$v]) ? $opts[$v] : $v;
+                }
+                $val = implode(', ', $labels);
+            } else {
+                $val = $cleanCell($val);
+            }
+            $line[] = trim((string)$val);
+        }
+
+        $line[] = $cleanCell(strip_tags((string)$row->observaciones));
+        fputcsv($output, $line);
+    }
+
+    $res_cons->free();
+    fclose($output);
     exit;
 }
 
@@ -401,6 +688,10 @@ if (!empty($filter_types)) {
     }
     if ($filter_date_start > 0) $sql_cnt .= " AND c.date_start >= '".$db->idate($filter_date_start)."'";
     if ($filter_date_end   > 0) $sql_cnt .= " AND c.date_start <= '".$db->idate($filter_date_end)."'";
+    if (!empty($filter_statuses)) {
+        $statuses_cnt_in = implode(',', $filter_statuses);
+        $sql_cnt .= " AND c.status IN (".$statuses_cnt_in.")";
+    }
     $res_cnt = $db->query($sql_cnt);
     if ($res_cnt) {
         $row_cnt = $db->fetch_object($res_cnt);
@@ -434,6 +725,10 @@ if (!empty($filter_types)) {
     }
     if ($filter_date_start > 0) $sql_prev .= " AND c.date_start >= '".$db->idate($filter_date_start)."'";
     if ($filter_date_end   > 0) $sql_prev .= " AND c.date_start <= '".$db->idate($filter_date_end)."'";
+    if (!empty($filter_statuses)) {
+        $statuses_prev_in = implode(',', $filter_statuses);
+        $sql_prev .= " AND c.status IN (".$statuses_prev_in.")";
+    }
     $sql_prev .= " GROUP BY c.rowid ORDER BY c.date_start DESC LIMIT ".$PREVIEW_LIMIT;
 
     $res_prev = $db->query($sql_prev);
@@ -653,6 +948,7 @@ print '
     initMultiselect("cm-ms-types");
     initMultiselect("cm-ms-users");
     initMultiselect("cm-ms-eps");
+    initMultiselect("cm-ms-status");
     syncBeforeSubmit("export-filter-form");
   });
 })();
@@ -723,13 +1019,17 @@ print renderMultiselect('cm-ms-users', 'filter_user[]', $users_items, $filter_us
 print '</td>';
 print '</tr>';
 
-// Row 3: EPS
+// Row 3: EPS + Estado
 print '<tr>';
 print '<td class="titlefield" style="vertical-align:middle;"><label>EPS</label></td>';
 print '<td style="min-width:280px;">';
 print renderMultiselect('cm-ms-eps', 'filter_eps[]', $eps_items, $filter_eps, 'Seleccionar EPS...');
 print '</td>';
-print '<td colspan="2"></td>';
+print '<td class="titlefield" style="vertical-align:middle;"><label>Estado</label></td>';
+print '<td style="min-width:220px;">';
+$status_items = array(0 => 'En progreso', 1 => 'Completada', 2 => 'Cancelada');
+print renderMultiselect('cm-ms-status', 'filter_status[]', $status_items, $filter_statuses, 'Todos los estados');
+print '</td>';
 print '</tr>';
 
 // Row 2: Date range
@@ -754,8 +1054,11 @@ print '<i class="fas fa-eye"></i> Ver vista previa';
 print '</button>';
 
 if (!empty($filter_types)) {
-    print '<button type="submit" name="action" value="export" class="button butActionSave">';
+    print '<button type="submit" name="action" value="export" class="button butActionSave" style="margin-right:8px;">';
     print '<i class="fas fa-file-excel" style="color:#1d6f42;"></i> Exportar a Excel';
+    print '</button>';
+    print '<button type="submit" name="action" value="export_csv" class="button butActionSave">';
+    print '<i class="fas fa-file-csv" style="color:#107c41;"></i> Exportar a CSV <small>(recomendado para +5 000 filas)</small>';
     print '</button>';
 } else {
     print '<button type="button" class="button" disabled title="Selecciona al menos un tipo de consulta">';
@@ -781,6 +1084,9 @@ if (!empty($filter_types)) {
     print 'Total: <strong>'.$preview_count.'</strong> consulta'.($preview_count != 1 ? 's' : '');
     if ($preview_count > $PREVIEW_LIMIT) {
         print ' &nbsp;<em>(mostrando primeras '.$PREVIEW_LIMIT.')</em>';
+    }
+    if ($preview_count > 5000) {
+        print ' &nbsp;<span style="color:#c04a00;"><i class="fas fa-exclamation-triangle"></i> Dataset grande — usa <strong>Exportar a CSV</strong> para evitar problemas de memoria.</span>';
     }
     print '</span>';
     print '</div>';
