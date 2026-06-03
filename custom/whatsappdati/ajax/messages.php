@@ -92,11 +92,16 @@ if ($conversation->fetch($conversation_id) <= 0) {
 	exit;
 }
 
-// Mark messages as read
-$sql = "UPDATE ".MAIN_DB_PREFIX."whatsapp_conversations";
-$sql .= " SET unread_count = 0";
-$sql .= " WHERE rowid = ".((int) $conversation_id);
-$db->query($sql);
+// Mark messages as read — only when explicitly requested (user opens a conversation).
+// Polling loads (mark_read not set) must NOT reset unread_count so that manually-
+// marked "unread" conversations keep their indicator between polling cycles.
+$markRead = GETPOST('mark_read', 'int');
+if ($markRead) {
+	$sql = "UPDATE ".MAIN_DB_PREFIX."whatsapp_conversations";
+	$sql .= " SET unread_count = 0";
+	$sql .= " WHERE rowid = ".((int) $conversation_id);
+	$db->query($sql);
+}
 
 // Fetch messages — DESC order so we always get the most recent $limit messages;
 // then reverse to restore chronological (ASC) order for the frontend.

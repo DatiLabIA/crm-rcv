@@ -75,6 +75,8 @@ var WhatsAppChat = {
 	filterMine: false,
 	// "Only unread" filter toggle
 	filterUnread: false,
+	// "Archived/closed" conversations toggle
+	filterArchived: false,
 	// Server-side search term
 	_searchTerm: '',
 	_searchDebounce: null,
@@ -375,6 +377,9 @@ var WhatsAppChat = {
 		$(document).on('click', '#btn-transfer-conversation', function() {
 			self.openTransferModal();
 		});
+		$(document).on('click', '#btn-mark-unread', function() {
+			self.markConversationAsUnread();
+		});
 		$(document).on('click', '#whatsapp-transfer-submit', function() {
 			self.doTransfer();
 		});
@@ -433,6 +438,26 @@ var WhatsAppChat = {
 			self.filterUnread = !self.filterUnread;
 			$(this).toggleClass('active', self.filterUnread);
 			self.loadConversations(true);
+		});
+
+		// ---- Archived filter toggle ----
+		$(document).on('click', '#whatsapp-filter-archived-btn', function() {
+			self.filterArchived = !self.filterArchived;
+			$(this).toggleClass('active', self.filterArchived);
+			// When switching to archived mode: disable unread/mine filters
+			if (self.filterArchived) {
+				self.filterUnread = false;
+				self.filterMine = false;
+				$('#whatsapp-filter-unread-btn').removeClass('active');
+				$('#whatsapp-filter-mine-btn').removeClass('active');
+			}
+			self._applyArchivedMode();
+			self.loadConversations(true);
+		});
+
+		// ---- Reopen conversation ----
+		$(document).on('click', '#btn-reopen-conversation', function() {
+			self.reopenConversation();
 		});
 
 		// ---- Assign to me ----
@@ -659,6 +684,9 @@ var WhatsAppChat = {
 		if (this.filterUnread) {
 			data.unread_only = 1;
 		}
+		if (this.filterArchived) {
+			data.conv_status = 'closed';
+		}
 		if (this._searchTerm) {
 			data.search = this._searchTerm;
 		}
@@ -729,6 +757,15 @@ var WhatsAppChat = {
 		// Update or insert each conversation
 		var self = this;
 		conversations.forEach(function(conv, index) {
+			// If this is the currently open conversation AND the local cache already
+			// shows unread_count=0 (agent is actively reading it), override any stale
+			// server response to prevent the badge from re-appearing due to race conditions.
+			// Exception: if the cache says unread_count=1 (agent just marked it unread),
+			// respect the server value so the badge renders correctly.
+			var cachedConv = self.conversationsData[conv.rowid];
+			if (conv.rowid == self.currentConversationId && cachedConv && (parseInt(cachedConv.unread_count) || 0) === 0) {
+				conv.unread_count = 0;
+			}
 			// Cache conversation data
 			self.conversationsData[conv.rowid] = conv;
 
@@ -774,6 +811,9 @@ var WhatsAppChat = {
 			var sig = conv.unread_count + '|' + (conv.last_message_date || '') + '|' + ((conv.assigned_agents || []).map(function(a){return a.id;}).join(',') || conv.agent_name || '') + '|' + ((conv.tags || []).length);
 			el.data('sig', sig);
 		});
+
+		// Update browser tab title with total unread count
+		this._updateTabTitle(conversations);
 	},
 
 	/**
@@ -859,14 +899,18 @@ var WhatsAppChat = {
 		if (this.conversationsData[conversationId]) {
 			this.conversationsData[conversationId].unread_count = 0;
 		}
-		$('.whatsapp-conversation-item[data-conversation-id="' + conversationId + '"] .whatsapp-unread-badge').remove();
+		var $convItemSel = $('.whatsapp-conversation-item[data-conversation-id="' + conversationId + '"]');
+		$convItemSel.find('.whatsapp-unread-badge').remove();
+		// Reset data-sig unread segment so polls don't get confused by stale sig
+		var selSig = $convItemSel.data('sig') || '';
+		if (selSig) { $convItemSel.data('sig', selSig.replace(/^\d+/, '0')); }
 		$('#whatsapp-chat-header-actions').show();
 		// Reset message pagination for this conversation
 		this.messagesOffset = 0;
 		this.messagesHasMore = false;
 		// H35: On mobile, switch to chat panel
 		$('#whatsapp-chat-container').addClass('whatsapp-mobile-show-chat');
-		this.loadMessages(conversationId, true); // always scroll to bottom when switching conversations
+		this.loadMessages(conversationId, true, true); // always scroll to bottom; mark_read=true (user-initiated)
 		// Reload templates for the conversation's line
 		this.loadTemplates();
 		// Load CSAT info for this conversation
@@ -876,15 +920,17 @@ var WhatsAppChat = {
 	/**
 	 * Load messages for conversation
 	 */
-	loadMessages: function(conversationId, forceScroll) {
+	loadMessages: function(conversationId, forceScroll, markRead) {
 		// M12: Prevent concurrent message loads
 		if (this.isLoadingMessages) return;
 		this.isLoadingMessages = true;
 		var self = this;
+		var msgData = { conversation_id: conversationId, offset: this.messagesOffset };
+		if (markRead) msgData.mark_read = 1;
 		$.ajax({
 			url: WhatsAppAjaxBase + 'ajax/messages.php',
 			method: 'GET',
-			data: { conversation_id: conversationId, offset: this.messagesOffset },
+			data: msgData,
 			dataType: 'json',
 			success: function(data) {
 				if (data.success) {
@@ -2875,6 +2921,102 @@ var WhatsAppChat = {
 	// ==========================================
 	// Transfer & Close Conversation
 	// ==========================================
+
+	/**
+	 * Mark current conversation as unread (unread_count = 1).
+	 * Updates the sidebar badge and conversation cache without a full reload.
+	 */
+	markConversationAsUnread: function() {
+		var self = this;
+		var conversationId = this.currentConversationId;
+		if (!conversationId) return;
+
+		$.post(WhatsAppAjaxBase + 'ajax/conversations.php', {
+			action: 'mark_unread',
+			conversation_id: conversationId
+		}, function(response) {
+			if (response && response.success) {
+				// Update local cache
+				if (self.conversationsData[conversationId]) {
+					self.conversationsData[conversationId].unread_count = 1;
+				}
+				// Force data-sig to old value so next renderConversations detects
+				// the unread_count change and re-renders the item with the badge.
+				var $item = $('.whatsapp-conversation-item[data-conversation-id="' + conversationId + '"]');
+				var oldSig = $item.data('sig') || '';
+				// Set sig to an unmatchable value so the next render always redraws
+				$item.data('sig', '__stale__');
+				// Immediately reload conversations so the badge appears right away
+				self.loadConversations(true);
+			}
+		}, 'json');
+	},
+
+	/**
+	 * Apply or remove "archived mode" UI changes:
+	 * - In archived mode: hide the input area, transfer/close/mark-unread buttons, show reopen button
+	 * - In active mode: restore normal UI
+	 */
+	_applyArchivedMode: function() {
+		if (this.filterArchived) {
+			$('#whatsapp-input-area').hide();
+			$('#btn-transfer-conversation').hide();
+			$('#btn-close-conversation').hide();
+			$('#btn-mark-unread').hide();
+			$('#btn-reopen-conversation').show();
+		} else {
+			// Restore normal mode — input area visibility controlled by selectConversation
+			if (this.currentConversationId) {
+				$('#whatsapp-input-area').show();
+			}
+			$('#btn-transfer-conversation').show();
+			$('#btn-close-conversation').show();
+			$('#btn-mark-unread').show();
+			$('#btn-reopen-conversation').hide();
+		}
+	},
+
+	/**
+	 * Reopen a closed conversation by setting its status back to 'active'.
+	 */
+	reopenConversation: function() {
+		var self = this;
+		var conversationId = this.currentConversationId;
+		if (!conversationId) return;
+
+		if (!confirm(this._t('ConfirmReopen') || '¿Reabrir esta conversación?')) return;
+
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/assignment.php',
+			method: 'POST',
+			data: {
+				action: 'reopen_conversation',
+				conversation_id: conversationId,
+				token: $('input[name="token"]').val()
+			},
+			dataType: 'json',
+			success: function(data) {
+				if (data.success) {
+					// Remove from current (archived) list and reset chat panel
+					self.currentConversationId = null;
+					$('#whatsapp-chat-header-actions').hide();
+					$('#whatsapp-input-area').hide();
+					$('#whatsapp-messages-area').html(
+						'<div class="whatsapp-empty-state">' +
+						'<div class="whatsapp-empty-state-icon">💬</div>' +
+						'<div class="whatsapp-empty-state-text">' + self._t('SelectConversation') + '</div>' +
+						'</div>'
+					);
+					self.loadConversations(true);
+				} else {
+					alert(data.error || 'Error');
+				}
+			},
+			error: function() {
+				alert(self._t('JsConnectionError'));
+			}
+		});
+	},
 
 	/**
 	 * Open transfer modal — populate agents dropdown and load transfer history

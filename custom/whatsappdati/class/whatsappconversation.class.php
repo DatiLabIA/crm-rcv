@@ -289,7 +289,7 @@ class WhatsAppConversation extends CommonObject
 	 * @param  string $search      Search term (matches contact_name or phone_number)
 	 * @return array               Array of conversations
 	 */
-	public function fetchAll($user_id = 0, $sortfield = 'last_message_date', $sortorder = 'DESC', $limit = 100, $offset = 0, $lineId = 0, $tag_id = 0, $unread_only = false, $search = '', $scopeUserId = 0)
+	public function fetchAll($user_id = 0, $sortfield = 'last_message_date', $sortorder = 'DESC', $limit = 100, $offset = 0, $lineId = 0, $tag_id = 0, $unread_only = false, $search = '', $scopeUserId = 0, $status = 'active')
 	{
 		global $conf;
 
@@ -312,7 +312,9 @@ class WhatsAppConversation extends CommonObject
 		$sql .= " FROM ".MAIN_DB_PREFIX.$this->table_element." as t";
 		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = t.fk_user_assigned";
 		$sql .= " WHERE t.entity = ".$conf->entity;
-		$sql .= " AND t.status = 'active'";
+		$allowedStatuses = array('active', 'closed');
+		$filteredStatus = in_array($status, $allowedStatuses) ? $status : 'active';
+		$sql .= " AND t.status = '".$filteredStatus."'";
 
 		// Visibility scope: non-admin users only see conversations on their
 		// assigned lines or conversations explicitly assigned to them
@@ -399,6 +401,33 @@ class WhatsAppConversation extends CommonObject
 			$this->errors[] = "Error ".$this->db->lasterror();
 			return -1;
 		}
+	}
+
+	/**
+	 * Mark conversation as unread by setting unread_count to 1.
+	 * This signals agents that the conversation needs attention.
+	 *
+	 * @return int 1 on success, -1 on failure
+	 */
+	public function markUnread()
+	{
+		global $conf;
+
+		if (!($this->id > 0)) return -1;
+
+		$sql = "UPDATE ".MAIN_DB_PREFIX.$this->table_element;
+		$sql .= " SET unread_count = 1";
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $conf->entity);
+
+		dol_syslog(get_class($this)."::markUnread id=".$this->id, LOG_DEBUG);
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			$this->unread_count = 1;
+			return 1;
+		}
+		$this->errors[] = "Error ".$this->db->lasterror();
+		return -1;
 	}
 
 	/**

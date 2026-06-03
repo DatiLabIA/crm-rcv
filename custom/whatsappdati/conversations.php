@@ -216,6 +216,7 @@ print '</select>';
 print '</div>';
 print '<button type="button" class="whatsapp-mine-filter-btn" id="whatsapp-filter-mine-btn" title="'.$langs->trans("ShowOnlyMine").'">&#128100; '.$langs->trans("Mine").'</button>';
 print '<button type="button" class="whatsapp-mine-filter-btn" id="whatsapp-filter-unread-btn" title="'.$langs->trans("ShowOnlyUnread").'">&#128172; '.$langs->trans("Unread").'</button>';
+print '<button type="button" class="whatsapp-mine-filter-btn whatsapp-archived-filter-btn" id="whatsapp-filter-archived-btn" title="'.$langs->trans("ShowArchived").'">🔒 '.$langs->trans("Archived").'</button>';
 print '</div>';
 
 // Search bar
@@ -270,6 +271,8 @@ print '</div>';
 // Transfer & Close area
 print '<div class="whatsapp-conv-actions-area" id="whatsapp-conv-actions-area">';
 print '<button type="button" class="whatsapp-action-btn whatsapp-transfer-btn" id="btn-transfer-conversation" title="'.$langs->trans("TransferConversation").'">🔄 '.$langs->trans("Transfer").'</button>';
+print '<button type="button" class="whatsapp-action-btn whatsapp-mark-unread-btn" id="btn-mark-unread" title="'.$langs->trans("MarkAsUnread").'">🔵 '.$langs->trans("MarkAsUnread").'</button>';
+print '<button type="button" class="whatsapp-action-btn whatsapp-reopen-btn" id="btn-reopen-conversation" title="'.$langs->trans("ReopenConversation").'" style="display:none;">🔓 '.$langs->trans("Reopen").'</button>';
 print '<button type="button" class="whatsapp-action-btn whatsapp-close-btn" id="btn-close-conversation" title="'.$langs->trans("CloseConversation").'">🔒 '.$langs->trans("CloseConv").'</button>';
 print '<span class="whatsapp-csat-info" id="whatsapp-csat-info" style="display:none;"></span>';
 print '</div>';

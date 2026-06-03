@@ -182,7 +182,9 @@ $COLUMNS = array(
     'n_documento'             => 'N° Documento',
     'birthdate'               => 'Fecha Nacimiento',
     'email'                   => 'Email',
-    'phone'                   => 'Teléfono',
+    'phone'                   => 'Teléfono Principal',
+    'phone_mobile'            => 'Celular',
+    'fax'                     => 'Teléfono Responsable',
     'eps'                     => 'EPS',
     'regimen'                 => 'Régimen',
     'tipo_de_afiliacion'      => 'Tipo Afiliación',
@@ -205,7 +207,7 @@ $COLUMNS = array(
 );
 
 $SELECT_SQL = 'SELECT s.rowid,'
-    .' s.nom AS nombre, s.datec AS fecha_creacion, s.email, s.phone, s.town AS ciudad,'
+    .' s.nom AS nombre, s.datec AS fecha_creacion, s.email, s.phone, s.phone_mobile, s.fax, s.town AS ciudad,'
     .' dep.nom AS departamento,'
     .' ef.tipo_de_documento, ef.n_documento, ef.birthdate,'
     .' ef.regimen, ef.tipo_de_afiliacion, ef.concentracion,'
@@ -221,7 +223,7 @@ $SELECT_SQL = 'SELECT s.rowid,'
     .' MAX(c.date_start)   AS ultima_consulta'
     .' FROM '.MAIN_DB_PREFIX.'societe s';
 
-$GROUP_SQL = ' GROUP BY s.rowid, s.nom, s.datec, s.email, s.phone, s.town,'
+$GROUP_SQL = ' GROUP BY s.rowid, s.nom, s.datec, s.email, s.phone, s.phone_mobile, s.fax, s.town,'
     .' dep.nom, ef.tipo_de_documento, ef.n_documento, ef.birthdate,'
     .' ef.regimen, ef.tipo_de_afiliacion, ef.concentracion,'
     .' ef.sede_operador_logistico, ef.estado_del_paciente, ef.estado_vital,'

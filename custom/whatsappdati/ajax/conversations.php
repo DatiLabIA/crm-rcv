@@ -80,12 +80,37 @@ $search = trim(GETPOST('search', 'alphanohtml') ?? '');
 $limit = GETPOST('limit', 'int') ?: 50;
 $offset = GETPOST('offset', 'int') ?: 0;
 
-// Fetch conversations (all filters applied in SQL)
+// ---------------------------------------------------------------
+// Action: mark_unread — sets unread_count = 1 for a conversation
+// ---------------------------------------------------------------
+$action = GETPOST('action', 'aZ09');
+if ($action === 'mark_unread') {
+	$conv_id = GETPOST('conversation_id', 'int');
+	if (!($conv_id > 0)) {
+		echo json_encode(array('success' => false, 'error' => 'Missing conversation_id'));
+		exit;
+	}
+	$conv = new WhatsAppConversation($db);
+	if ($conv->fetch($conv_id) <= 0) {
+		echo json_encode(array('success' => false, 'error' => 'Conversation not found'));
+		exit;
+	}
+	if ($conv->markUnread() > 0) {
+		echo json_encode(array('success' => true));
+	} else {
+		echo json_encode(array('success' => false, 'error' => implode(', ', $conv->errors)));
+	}
+	exit;
+}
 $unread_only = (bool) GETPOST('unread_only', 'int');
+$conv_status = GETPOST('conv_status', 'aZ09');
+if (!in_array($conv_status, array('active', 'closed'))) {
+	$conv_status = 'active';
+}
 $conversation = new WhatsAppConversation($db);
 // Visibility: non-admin users only see conversations on their lines or assigned to them
 $scopeUserId = $user->admin ? 0 : (int) $user->id;
-$conversations = $conversation->fetchAll($user_id, 'last_message_date', 'DESC', $limit, $offset, $line_id, $tag_id, $unread_only, $search, $scopeUserId);
+$conversations = $conversation->fetchAll($user_id, 'last_message_date', 'DESC', $limit, $offset, $line_id, $tag_id, $unread_only, $search, $scopeUserId, $conv_status);
 
 // Tag handler (used for enrichment only)
 $tagHandler = new WhatsAppTag($db);

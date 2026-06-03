@@ -77,7 +77,7 @@ if (!$user->rights->whatsappdati->conversation->read) {
 $action = GETPOST('action', 'aZ09');
 
 // CSRF validation for mutation actions
-if (in_array($action, array('assign', 'unassign', 'transfer', 'close_conversation', 'send_csat', 'multi_assign', 'add_agent', 'remove_agent', 'claim'))) {
+if (in_array($action, array('assign', 'unassign', 'transfer', 'close_conversation', 'reopen_conversation', 'send_csat', 'multi_assign', 'add_agent', 'remove_agent', 'claim'))) {
 	whatsappdatiCheckCSRFToken();
 }
 $assignment = new WhatsAppAssignment($db);
@@ -552,6 +552,45 @@ switch ($action) {
 			'csat_sent'   => ($csatResult && $csatResult['success']),
 			'csat_result' => $csatResult
 		));
+		break;
+
+	// --------------------------------------------------
+	// REOPEN_CONVERSATION: set status back to 'active'
+	// --------------------------------------------------
+	case 'reopen_conversation':
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			echo json_encode(array('success' => false, 'error' => 'POST method required'));
+			break;
+		}
+		$conversationId = GETPOST('conversation_id', 'int');
+		if ($conversationId <= 0) {
+			echo json_encode(array('success' => false, 'error' => 'conversation_id required'));
+			break;
+		}
+		$conv = new WhatsAppConversation($db);
+		if ($conv->fetch($conversationId) <= 0) {
+			echo json_encode(array('success' => false, 'error' => 'Conversation not found'));
+			break;
+		}
+		$conv->status = 'active';
+		$conv->update($user);
+
+		// System message
+		require_once dol_buildpath('/whatsappdati/class/whatsappmessage.class.php', 0);
+		$agentName = trim($user->firstname.' '.$user->lastname) ?: $user->login;
+		$sysMsg = new WhatsAppMessage($db);
+		$sysMsg->message_id = 'sys_reopen_'.dol_now().'_'.$conversationId;
+		$sysMsg->fk_conversation = $conversationId;
+		$sysMsg->fk_line = $conv->fk_line;
+		$sysMsg->direction = 'system';
+		$sysMsg->message_type = 'text';
+		$sysMsg->content = '🔓 Conversación reabierta por '.$agentName;
+		$sysMsg->status = 'delivered';
+		$sysMsg->fk_user_sender = $user->id;
+		$sysMsg->timestamp = dol_now();
+		$sysMsg->create($user);
+
+		echo json_encode(array('success' => true));
 		break;
 
 	// --------------------------------------------------
