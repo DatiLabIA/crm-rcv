@@ -62,6 +62,136 @@ if (!$user->rights->whatsappdati->message->send) {
 
 header('Content-Type: application/json; charset=UTF-8');
 
+$action = GETPOST('action', 'aZ09');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTION: filter — return patients matching extrafield filters
+// ─────────────────────────────────────────────────────────────────────────────
+if ($action === 'filter' || $action === 'count') {
+
+	// Helper: parse POST array of ints
+	$intArr = function($key) {
+		$vals = array();
+		$raw = isset($_GET[$key]) ? $_GET[$key] : (isset($_POST[$key]) ? $_POST[$key] : array());
+		foreach ((array) $raw as $v) {
+			$v = (int) $v;
+			if ($v > 0) $vals[] = $v;
+		}
+		return $vals;
+	};
+
+	$f_programa    = $intArr('f_programa');
+	$f_medicamento = $intArr('f_medicamento');
+	$f_eps         = $intArr('f_eps');
+	$f_operador    = $intArr('f_operador');
+	$f_medico      = $intArr('f_medico');
+	$f_estado      = $intArr('f_estado');
+	$f_estadovital = $intArr('f_estadovital');
+	$f_regimen     = $intArr('f_regimen');
+	$f_biologico   = GETPOST('f_biologico', 'int'); // 1=sí, -1=no, 0=todos
+	$limit_filter  = GETPOST('limit', 'int');
+	if ($limit_filter <= 0 || $limit_filter > 5000) $limit_filter = 500;
+
+	$joins  = ' LEFT JOIN '.MAIN_DB_PREFIX.'societe_extrafields ef ON ef.fk_object = s.rowid';
+	$where  = " WHERE s.canvas = 'patient@cabinetmed' AND s.entity IN (".getEntity('societe').')';
+	$where .= " AND s.status = 1";
+	$where .= " AND (s.phone != '' OR s.phone_mobile != '' OR s.fax != '')";
+
+	if (!empty($f_programa))    $where .= ' AND ef.programa IN ('.implode(',', $f_programa).')';
+	if (!empty($f_medicamento)) $where .= ' AND ef.medicamento IN ('.implode(',', $f_medicamento).')';
+	if (!empty($f_eps))         $where .= ' AND ef.eps IN ('.implode(',', $f_eps).')';
+	if (!empty($f_operador))    $where .= ' AND ef.operador_logistico IN ('.implode(',', $f_operador).')';
+	if (!empty($f_medico))      $where .= ' AND ef.medico_tratante IN ('.implode(',', $f_medico).')';
+	if (!empty($f_estado))      $where .= ' AND ef.estado_del_paciente IN ('.implode(',', $f_estado).')';
+	if (!empty($f_estadovital)) $where .= ' AND ef.estado_vital IN ('.implode(',', $f_estadovital).')';
+	if (!empty($f_regimen))     $where .= ' AND ef.regimen IN ('.implode(',', $f_regimen).')';
+	if ($f_biologico == 1)      $where .= " AND ef.biologico = 1";
+	if ($f_biologico == -1)     $where .= " AND (ef.biologico = 0 OR ef.biologico IS NULL)";
+
+	if ($action === 'count') {
+		$sql_count = 'SELECT COUNT(DISTINCT s.rowid) AS cnt FROM '.MAIN_DB_PREFIX.'societe s'.$joins.$where;
+		$res_cnt = $db->query($sql_count);
+		$cnt = 0;
+		if ($res_cnt) { $r = $db->fetch_object($res_cnt); $cnt = (int) $r->cnt; }
+		echo json_encode(array('success' => true, 'count' => $cnt));
+		exit;
+	}
+
+	// action === 'filter': return actual recipients
+	// Phone validation helper: strip non-digits, require at least 7 digits
+	$isValidPhone = function($num) {
+		if (empty($num)) return false;
+		$digits = preg_replace('/[^0-9]/', '', $num);
+		return strlen($digits) >= 7;
+	};
+	// Returns first valid phone in priority order: mobile → phone → fax
+	$bestPhone = function($mobile, $phone, $fax) use ($isValidPhone) {
+		foreach (array(
+			array('type' => 'mobile', 'number' => $mobile),
+			array('type' => 'phone',  'number' => $phone),
+			array('type' => 'fax',    'number' => $fax),
+		) as $candidate) {
+			if ($isValidPhone($candidate['number'])) return $candidate;
+		}
+		return null;
+	};
+
+	$sql = 'SELECT DISTINCT s.rowid, s.nom, s.phone, s.phone_mobile, s.fax'
+		.' FROM '.MAIN_DB_PREFIX.'societe s'.$joins.$where
+		.' ORDER BY s.nom ASC'
+		.' LIMIT '.((int) $limit_filter);
+
+	$resql = $db->query($sql);
+	$recipients = array();
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$best = $bestPhone($obj->phone_mobile, $obj->phone, $obj->fax);
+			if (!$best) continue;
+			$recipients[] = array(
+				'id'        => 'thirdparty_'.$obj->rowid,
+				'name'      => $obj->nom,
+				'phones'    => array($best),
+				'company'   => $obj->nom,
+				'fk_soc'    => (int) $obj->rowid,
+				'source'    => 'thirdparty',
+				'source_id' => (int) $obj->rowid,
+			);
+		}
+	}
+	echo json_encode(array('success' => true, 'recipients' => $recipients, 'total' => count($recipients)));
+	exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTION: phones — parse a comma/newline-separated list of phone numbers
+// ─────────────────────────────────────────────────────────────────────────────
+if ($action === 'phones') {
+	$raw = GETPOST('numbers', 'restricthtml');
+	$lines = preg_split('/[\s,;]+/', $raw);
+	$recipients = array();
+	foreach ($lines as $num) {
+		$num = trim($num);
+		if (empty($num)) continue;
+		$digits = preg_replace('/[^0-9+]/', '', $num);
+		if (strlen($digits) < 7) continue;
+		$id = 'manual_'.md5($digits);
+		$recipients[] = array(
+			'id'        => $id,
+			'name'      => $num,
+			'phones'    => array(array('type' => 'phone', 'number' => $num)),
+			'company'   => '',
+			'fk_soc'    => 0,
+			'source'    => 'manual',
+			'source_id' => 0,
+		);
+	}
+	echo json_encode(array('success' => true, 'recipients' => $recipients, 'total' => count($recipients)));
+	exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEFAULT: text search (existing logic)
+// ─────────────────────────────────────────────────────────────────────────────
 $search = GETPOST('search', 'alphanohtml');
 $limit = GETPOST('limit', 'int');
 if (empty($limit) || $limit > 200) {

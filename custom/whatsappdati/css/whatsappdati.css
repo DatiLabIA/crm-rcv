@@ -1910,6 +1910,73 @@
 	flex-wrap: wrap;
 }
 
+/* Mode tabs */
+.bulk-mode-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 12px;
+	border-bottom: 2px solid var(--wa-border-light);
+	padding-bottom: 0;
+}
+.bulk-mode-tab {
+	padding: 7px 16px;
+	font-size: 13px;
+	border: 1px solid var(--wa-border-light);
+	border-bottom: none;
+	background: var(--wa-bg-secondary);
+	color: var(--wa-text-secondary);
+	cursor: pointer;
+	border-radius: 6px 6px 0 0;
+	transition: background 0.15s, color 0.15s;
+}
+.bulk-mode-tab:hover { background: var(--wa-primary-glow); color: var(--wa-primary); }
+.bulk-mode-tab.active {
+	background: #fff;
+	color: var(--wa-primary);
+	font-weight: 600;
+	border-color: var(--wa-border-light);
+	border-bottom-color: #fff;
+	margin-bottom: -2px;
+}
+.bulk-mode-panel { padding: 4px 0; }
+
+/* Filter checkbox groups */
+.bulk-filter-group {
+	background: var(--wa-surface-2);
+	border: 1px solid var(--wa-border-light);
+	border-radius: var(--wa-radius-sm);
+	overflow: hidden;
+}
+.bulk-filter-group-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--wa-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 5px 8px 4px;
+	background: var(--wa-bg-header);
+	border-bottom: 1px solid var(--wa-border-light);
+}
+.bulk-filter-checks {
+	max-height: 130px;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+.bulk-filter-checks::-webkit-scrollbar { width: 4px; }
+.bulk-filter-checks::-webkit-scrollbar-thumb { background: var(--wa-border-medium); border-radius: 4px; }
+.bulk-filter-check-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	font-size: 12px;
+	color: var(--wa-text-primary);
+	cursor: pointer;
+	transition: background 0.1s;
+}
+.bulk-filter-check-item:hover { background: var(--wa-bg-hover); }
+.bulk-filter-check-item input[type="checkbox"] { margin: 0; cursor: pointer; }
+
 .bulk-recipient-count {
 	font-size: var(--wa-font-size-sm);
 	color: var(--wa-primary);
@@ -2130,6 +2197,37 @@
 .bulk-stat-pending {
 	color: var(--wa-warning);
 }
+
+/* Show-errors inline button next to failed count */
+.bulk-show-errors-btn {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 2px 9px;
+	font-size: 12px;
+	background: #fef2f2;
+	border: 1px solid #fca5a5;
+	border-radius: 4px;
+	color: #b91c1c;
+	cursor: pointer;
+	vertical-align: middle;
+	transition: background 0.15s;
+}
+.bulk-show-errors-btn:hover { background: #fee2e2; }
+
+/* Abort button during send */
+#bulk-abort-btn {
+	margin-top: 4px;
+	background: #dc2626;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	padding: 6px 16px;
+	font-size: 13px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+#bulk-abort-btn:hover:not(:disabled) { background: #b91c1c; }
+#bulk-abort-btn:disabled { opacity: 0.6; cursor: default; }
 
 .bulk-progress-actions {
 	margin-top: 15px;

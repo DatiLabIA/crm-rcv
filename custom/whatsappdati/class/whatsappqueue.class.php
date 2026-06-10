@@ -271,6 +271,7 @@ class WhatsAppQueue extends CommonObject
 		require_once dol_buildpath('/whatsappdati/class/whatsappmanager.class.php', 0);
 		require_once dol_buildpath('/whatsappdati/class/whatsappconversation.class.php', 0);
 		require_once dol_buildpath('/whatsappdati/class/whatsappmessage.class.php', 0);
+		require_once dol_buildpath('/whatsappdati/class/whatsapptemplate.class.php', 0);
 
 		// Mark as processing
 		$this->updateStatus('processing');
@@ -286,11 +287,24 @@ class WhatsAppQueue extends CommonObject
 			}
 		}
 
+		// Resolve template language and apply slugify to name — same as send_message.php
+		$templateLanguage = 'es';
+		$metaTemplateName = WhatsAppTemplate::slugify($this->template_name);
+		if ($this->fk_template > 0) {
+			$tplObj = new WhatsAppTemplate($this->db);
+			if ($tplObj->fetch($this->fk_template) > 0) {
+				if (!empty($tplObj->language)) $templateLanguage = $tplObj->language;
+				// Use the DB name as source of truth for slug (more reliable than queue.template_name)
+				if (!empty($tplObj->name)) $metaTemplateName = WhatsAppTemplate::slugify($tplObj->name);
+			}
+		}
+
 		// Send template message
 		$result = $manager->sendTemplateMessage(
 			$this->phone_number,
-			$this->template_name,
-			$params
+			$metaTemplateName,
+			$params,
+			$templateLanguage
 		);
 
 		if ($result['success']) {

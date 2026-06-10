@@ -163,6 +163,8 @@ print '<script>var WhatsAppLang = WhatsAppLang || '.json_encode($jsTranslations)
 print '<script>var WhatsAppCurrentUserName = WhatsAppCurrentUserName || '.json_encode(trim($user->firstname.' '.$user->lastname) ?: $user->login, JSON_UNESCAPED_UNICODE).';</script>'."\n";
 // L5: Inject AJAX base URL so JS doesn't rely on relative paths
 print '<script>var WhatsAppAjaxBase = WhatsAppAjaxBase || "'.dol_escape_htmltag(dol_buildpath('/custom/whatsappdati/', 1)).'";</script>'."\n";
+// Inject rate limit (ms per message) and batch size so JS can calculate time estimates
+print '<script>var BulkRateLimitMs = '.((int) getDolGlobalInt('WHATSAPPDATI_RATE_LIMIT_MS', 100)).'; var BulkBatchSize = 50;</script>'."\n";
 
 // Multi-line: Inject available lines for JS
 $configObj = new WhatsAppConfig($db);
@@ -275,10 +277,50 @@ if ($view == 'history') {
 	// NEW BULK SEND VIEW
 	// ============================================================
 
+	// Load filter options for Step 2 (patient group filters) — only needed for the new form
+	$bulkOptPrograma    = array(); $bulkOptMedicamento = array(); $bulkOptEps     = array();
+	$bulkOptOperador    = array(); $bulkOptMedico      = array();
+	$_bulkLoadOpts = function($table, $valCol, $labelCol) use ($db) {
+		$opts = array();
+		$sql = 'SELECT '.$valCol.', '.$labelCol.' FROM '.MAIN_DB_PREFIX.$table;
+		$sql .= ' WHERE entity IN ('.getEntity('societe').') ORDER BY '.$labelCol.' ASC';
+		$res = $db->query($sql);
+		while ($res && $r = $db->fetch_object($res)) {
+			$opts[] = array('id' => (int) $r->$valCol, 'label' => $r->$labelCol);
+		}
+		return $opts;
+	};
+	$bulkOptPrograma    = $_bulkLoadOpts('gestion_programa',    'rowid', 'nombre');
+	$bulkOptMedicamento = $_bulkLoadOpts('gestion_medicamento', 'rowid', 'etiqueta');
+	$bulkOptEps         = $_bulkLoadOpts('gestion_eps',         'rowid', 'descripcion');
+	$bulkOptOperador    = $_bulkLoadOpts('gestion_operador',    'rowid', 'nombre');
+	$bulkOptMedico      = $_bulkLoadOpts('gestion_medico',      'rowid', 'nombre');
+	$bulkOptEstado = array(
+		array('id'=>1,'label'=>'En Tránsito'), array('id'=>2,'label'=>'En Proceso'),
+		array('id'=>3,'label'=>'Activo en Tratamiento'), array('id'=>4,'label'=>'Activo Independiente'),
+		array('id'=>5,'label'=>'Activo Por El Programa'), array('id'=>6,'label'=>'Reactivado'),
+		array('id'=>7,'label'=>'Suspendido'), array('id'=>8,'label'=>'No trazable'),
+		array('id'=>9,'label'=>'NAP'), array('id'=>10,'label'=>'Inactivo'),
+	);
+	$bulkOptEstadoVital = array(array('id'=>1,'label'=>'Vivo'), array('id'=>2,'label'=>'Muerto'));
+	$bulkOptRegimen = array(
+		array('id'=>1,'label'=>'Contributivo'), array('id'=>2,'label'=>'Subsidiado'),
+		array('id'=>3,'label'=>'Especial'), array('id'=>4,'label'=>'Particular'),
+		array('id'=>5,'label'=>'Por confirmar'),
+	);
+	print '<script>var BulkFilterOpts = '.json_encode(array(
+		'programa'    => $bulkOptPrograma,
+		'medicamento' => $bulkOptMedicamento,
+		'eps'         => $bulkOptEps,
+		'operador'    => $bulkOptOperador,
+		'medico'      => $bulkOptMedico,
+		'estado'      => $bulkOptEstado,
+		'estadovital' => $bulkOptEstadoVital,
+		'regimen'     => $bulkOptRegimen,
+	), JSON_UNESCAPED_UNICODE).';</script>'."\n";
+
 	// Step 1: Template selection
 	print '<div class="bulk-send-form" id="bulk-send-form">';
-
-	// Template selection
 	print '<div class="bulk-send-section">';
 	print '<h3>'.img_picto('', 'object_list').' '.$langs->trans("Step1SelectTemplate").'</h3>';
 
@@ -315,20 +357,108 @@ if ($view == 'history') {
 	// Step 2: Recipients
 	print '<div class="bulk-send-section">';
 	print '<h3>'.img_picto('', 'object_contact').' '.$langs->trans("Step2SelectRecipients").'</h3>';
+
+	// Mode tabs
+	print '<div class="bulk-mode-tabs">';
+	print '<button type="button" class="bulk-mode-tab active" data-mode="search">🔍 '.$langs->trans("Search").'</button>';
+	print '<button type="button" class="bulk-mode-tab" data-mode="phones">📋 '.$langs->trans("BulkDirectNumbers").'</button>';
+	print '<button type="button" class="bulk-mode-tab" data-mode="filter">⚙️ '.$langs->trans("BulkFilterGroup").'</button>';
+	print '</div>';
+
+	// ── Mode: text search ──
+	print '<div class="bulk-mode-panel" id="bulk-mode-search">';
 	print '<div class="bulk-recipient-search-row">';
 	print '<input type="text" class="flat minwidth300" id="bulk-recipient-search" placeholder="'.$langs->trans("SearchRecipients").'" />';
 	print '<button type="button" class="butAction small" id="bulk-search-btn">'.img_picto('', 'search_icon.png@whatsappdati', '', 0, 0, 0, '', 'pictofixedwidth').$langs->trans("Search").'</button>';
 	print '<span class="bulk-recipient-count" id="bulk-recipient-count"></span>';
 	print '</div>';
-	// Search results
 	print '<div class="bulk-search-results" id="bulk-search-results" style="display:none;">';
 	print '<div class="bulk-search-results-actions">';
 	print '<button type="button" class="butAction small" id="bulk-select-all-btn">'.$langs->trans("SelectAll").'</button>';
 	print '</div>';
 	print '<div class="bulk-search-results-list" id="bulk-search-results-list"></div>';
 	print '</div>';
-	// Selected recipients
-	print '<div class="bulk-selected-recipients" id="bulk-selected-recipients">';
+	print '</div>';
+
+	// ── Mode: direct phone numbers ──
+	print '<div class="bulk-mode-panel" id="bulk-mode-phones" style="display:none;">';
+	print '<p class="opacitymedium" style="margin:0 0 8px 0;">'.$langs->trans("BulkDirectNumbersHelp").'</p>';
+	print '<textarea id="bulk-phones-input" class="flat" style="width:100%;min-height:100px;font-family:monospace;" placeholder="3001234567, 3119876543&#10;3201112233"></textarea>';
+	print '<div style="margin-top:8px;">';
+	print '<button type="button" class="butAction small" id="bulk-phones-add-btn">'.$langs->trans("BulkAddNumbers").'</button>';
+	print '</div>';
+	print '</div>';
+
+	// ── Mode: filter by group ──
+	print '<div class="bulk-mode-panel" id="bulk-mode-filter" style="display:none;">';
+	print '<p style="font-size:12px;color:#667781;margin:0 0 10px 0;">'.
+		'<strong>Combina filtros:</strong> marca uno o varios valores en cada campo. '.
+		'Diferentes campos se combinan con AND; múltiples valores del mismo campo se combinan con OR.'.
+	'</p>';
+	print '<div id="bulk-filter-form" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;margin-bottom:12px;">';
+
+	$filterFields = array(
+		'f_programa'    => array('label' => $langs->trans("Programa"),          'opts' => $bulkOptPrograma),
+		'f_medicamento' => array('label' => $langs->trans("Medicamento"),        'opts' => $bulkOptMedicamento),
+		'f_eps'         => array('label' => $langs->trans("EPS"),                'opts' => $bulkOptEps),
+		'f_operador'    => array('label' => $langs->trans("OperadorLogistico"),  'opts' => $bulkOptOperador),
+		'f_medico'      => array('label' => $langs->trans("MedicoTratante"),     'opts' => $bulkOptMedico),
+		'f_estado'      => array('label' => $langs->trans("EstadoPaciente"),     'opts' => $bulkOptEstado),
+		'f_estadovital' => array('label' => $langs->trans("EstadoVital"),        'opts' => $bulkOptEstadoVital),
+		'f_regimen'     => array('label' => $langs->trans("Regimen"),            'opts' => $bulkOptRegimen),
+	);
+	foreach ($filterFields as $fieldId => $fieldCfg) {
+		print '<div class="bulk-filter-group">';
+		print '<div class="bulk-filter-group-label">'.dol_escape_htmltag($fieldCfg['label']).'</div>';
+		print '<div class="bulk-filter-checks" id="bulk-filter-'.$fieldId.'">';
+		if (empty($fieldCfg['opts'])) {
+			print '<span style="font-size:11px;color:#aaa;font-style:italic;">Sin opciones</span>';
+		}
+		foreach ($fieldCfg['opts'] as $opt) {
+			$eid = 'bfc_'.$fieldId.'_'.(int)$opt['id'];
+			print '<label class="bulk-filter-check-item" for="'.$eid.'">';
+			print '<input type="checkbox" id="'.$eid.'" value="'.((int)$opt['id']).'"> ';
+			print dol_escape_htmltag($opt['label']);
+			print '</label>';
+		}
+		print '</div>';
+		print '</div>';
+	}
+	// Biológico (single value, keep as select)
+	print '<div class="bulk-filter-group">';
+	print '<div class="bulk-filter-group-label">'.$langs->trans("TieneBiologico").'</div>';
+	print '<div class="bulk-filter-checks" style="padding:6px 8px;">';
+	print '<select class="flat" id="bulk-filter-f_biologico" style="width:100%;font-size:12px;">';
+	print '<option value="0">'.$langs->trans("All").'</option>';
+	print '<option value="1">'.$langs->trans("Yes").'</option>';
+	print '<option value="-1">'.$langs->trans("No").'</option>';
+	print '</select>';
+	print '</div>';
+	print '</div>';
+	print '</div>';
+
+	print '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
+	print '<button type="button" class="butAction small" id="bulk-filter-count-btn">📊 '.$langs->trans("BulkCountPatients").'</button>';
+	print '<button type="button" class="button small" id="bulk-filter-clear-btn" style="background:none;border:1px solid #ccc;color:#555;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;">✕ Limpiar filtros</button>';
+	print '<span id="bulk-filter-count-result" style="font-size:13px;"></span>';
+	print '</div>';
+
+	// Direct batch launch (shown after counting — bypasses the chip list for large volumes)
+	print '<div id="bulk-filter-direct-launch" style="display:none;margin-top:14px;padding:14px 16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;">';
+	print '<div id="bulk-filter-time-estimate" style="font-size:13px;margin-bottom:10px;line-height:1.6;"></div>';
+	print '<button type="button" class="butAction" id="bulk-filter-direct-send-btn">🚀 '.$langs->trans("BulkStartDirectSend").'</button>';
+	print ' <span style="font-size:12px;color:#888;">'.$langs->trans("BulkDirectSendNote").'</span>';
+	print '</div>';
+
+	print '<div style="margin-top:10px;">';
+	print '<button type="button" class="butAction small" id="bulk-filter-load-btn" style="display:none;">⬇️ '.$langs->trans("BulkLoadRecipients").'</button>';
+	print ' <span style="font-size:12px;color:#888;" id="bulk-filter-load-note"></span>';
+	print '</div>';
+	print '<p style="font-size:12px;color:#888;margin-top:6px;">'.$langs->trans("BulkFilterNote").'</p>';
+	print '</div>';
+
+	// Selected recipients (shared across all modes)
+	print '<div class="bulk-selected-recipients" id="bulk-selected-recipients" style="margin-top:12px;">';
 	print '<div class="bulk-recipients-chips" id="bulk-recipients-chips"></div>';
 	print '</div>';
 	print '</div>';
@@ -354,19 +484,57 @@ if ($view == 'history') {
 	print '<div class="bulk-progress-bar-container">';
 	print '<div class="bulk-progress-bar" id="bulk-progress-bar"><span id="bulk-progress-text">0%</span></div>';
 	print '</div>';
+	// Stats row
 	print '<div class="bulk-progress-stats" id="bulk-progress-stats">';
 	print '<span class="bulk-stat"><strong>'.$langs->trans("Total").':</strong> <span id="bulk-stat-total">0</span></span>';
 	print '<span class="bulk-stat bulk-stat-sent"><strong>'.$langs->trans("Sent").':</strong> <span id="bulk-stat-sent">0</span></span>';
-	print '<span class="bulk-stat bulk-stat-failed"><strong>'.$langs->trans("Failed").':</strong> <span id="bulk-stat-failed">0</span></span>';
+	print '<span class="bulk-stat bulk-stat-failed"><strong>'.$langs->trans("Failed").':</strong> <span id="bulk-stat-failed">0</span></span> ';
+	print '<button type="button" class="bulk-show-errors-btn" id="bulk-show-errors-btn" style="display:none;" title="Ver errores">⚠️ Ver errores</button>';
 	print '<span class="bulk-stat bulk-stat-pending"><strong>'.$langs->trans("BulkPending").':</strong> <span id="bulk-stat-pending">0</span></span>';
 	print '</div>';
-	print '<div class="bulk-progress-actions" id="bulk-progress-actions" style="display:none;">';
+	// Cancel button — visible WHILE sending
+	print '<div class="bulk-progress-sending-actions" id="bulk-progress-sending-actions" style="margin-top:10px;">';
+	print '<button type="button" class="butActionDelete" id="bulk-abort-btn">⛔ Cancelar envío ahora</button>';
+	print '</div>';
+	// Error detail panel (hidden until toggled)
+	print '<div id="bulk-errors-panel" style="display:none;margin-top:12px;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;">';
+	print '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+	print '<strong style="font-size:13px;">⚠️ Mensajes fallidos (últimos 20)</strong>';
+	print '<button type="button" id="bulk-refresh-errors-btn" style="font-size:12px;background:none;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;cursor:pointer;">🔄 Actualizar</button>';
+	print '</div>';
+	print '<div id="bulk-errors-list" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>';
+	print '</div>';
+	// Post-completion actions
+	print '<div class="bulk-progress-actions" id="bulk-progress-actions" style="display:none;margin-top:10px;">';
 	print '<button type="button" class="butAction" id="bulk-cancel-btn">'.$langs->trans("CancelPending").'</button>';
 	print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?view=history">'.$langs->trans("ViewHistory").'</a>';
 	print '</div>';
 	print '</div>';
 
 	print '</div>'; // bulk-send-form
+
+	// Inline script: tab switching independent of external JS load order
+	print '<script>
+(function() {
+	function initBulkTabs() {
+		var tabs = document.querySelectorAll(".bulk-mode-tab");
+		tabs.forEach(function(btn) {
+			btn.addEventListener("click", function() {
+				tabs.forEach(function(t) { t.classList.remove("active"); });
+				btn.classList.add("active");
+				document.querySelectorAll(".bulk-mode-panel").forEach(function(p) { p.style.display = "none"; });
+				var panel = document.getElementById("bulk-mode-" + btn.getAttribute("data-mode"));
+				if (panel) panel.style.display = "";
+			});
+		});
+	}
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", initBulkTabs);
+	} else {
+		initBulkTabs();
+	}
+})();
+</script>'."\n";
 }
 
 print '</div>'; // tabBar

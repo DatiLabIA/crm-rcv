@@ -4257,6 +4257,14 @@ var BulkSend = {
 	progressPollTimer: null,
 	_eventsBound: false, // L9: guard
 
+	// Returns the currently selected WhatsApp line ID
+	getSelectedLineId: function() {
+		var sel = $('#bulk-line-select');
+		if (sel.length) return parseInt(sel.val()) || 0;
+		if (typeof WhatsAppLines !== 'undefined' && WhatsAppLines.length) return WhatsAppLines[0].id;
+		return 0;
+	},
+
 	init: function() {
 		this.loadTemplates();
 		this.bindEvents();
@@ -4334,9 +4342,30 @@ var BulkSend = {
 			self.startBulkSend();
 		});
 
-		// Cancel button
+		// Cancel button (post-completion)
 		$(document).on('click', '#bulk-cancel-btn', function() {
 			self.cancelBulkSend();
+		});
+
+		// Abort button (during sending)
+		$(document).on('click', '#bulk-abort-btn', function() {
+			if (confirm('¿Cancelar el envío? Los mensajes ya enviados no se pueden revertir. Los pendientes quedarán cancelados.')) {
+				self.cancelBulkSend();
+			}
+		});
+
+		// Show/hide errors panel
+		$(document).on('click', '#bulk-show-errors-btn', function() {
+			var $panel = $('#bulk-errors-panel');
+			if ($panel.is(':visible')) {
+				$panel.hide();
+			} else {
+				$panel.show();
+				self.loadErrorDetails();
+			}
+		});
+		$(document).on('click', '#bulk-refresh-errors-btn', function() {
+			self.loadErrorDetails();
 		});
 
 		// Line change — reload templates for selected line
@@ -4344,11 +4373,272 @@ var BulkSend = {
 			self.loadTemplates();
 			$('#bulk-template-select').val('').trigger('change');
 		});
+
+		// ── Direct phones mode ──
+		$(document).on('click', '#bulk-phones-add-btn', function() {
+			self.addDirectPhones();
+		});
+
+		// ── Filter mode ──
+		$(document).on('click', '#bulk-filter-count-btn', function() {
+			self.countFilteredPatients();
+		});
+		$(document).on('click', '#bulk-filter-load-btn', function() {
+			self.loadFilteredRecipients();
+		});
+		$(document).on('click', '#bulk-filter-direct-send-btn', function() {
+			self.startBulkSendFromFilter();
+		});
+		$(document).on('click', '#bulk-filter-clear-btn', function() {
+			$('#bulk-filter-form input[type="checkbox"]').prop('checked', false);
+			$('#bulk-filter-f_biologico').val('0');
+			$('#bulk-filter-count-result').text('');
+			$('#bulk-filter-direct-launch').hide();
+			$('#bulk-filter-load-btn').hide();
+		});
 	},
 
-	getSelectedLineId: function() {
-		var el = $('#bulk-line-select');
-		return el.length ? (parseInt(el.val()) || 0) : 0;
+	// Collect checked values from a checkbox-based filter group
+	_getFilterVals: function(fieldId) {
+		var vals = [];
+		$('#bulk-filter-' + fieldId + ' input[type="checkbox"]:checked').each(function() {
+			var v = parseInt($(this).val());
+			if (v > 0) vals.push(v);
+		});
+		return vals;
+	},
+
+	_buildFilterData: function() {
+		var data = {};
+		var fields = ['f_programa','f_medicamento','f_eps','f_operador','f_medico','f_estado','f_estadovital','f_regimen'];
+		fields.forEach(function(f) {
+			var vals = BulkSend._getFilterVals(f);
+			if (vals.length) {
+				vals.forEach(function(v, i) { data[f + '[' + i + ']'] = v; });
+			}
+		});
+		var bio = parseInt($('#bulk-filter-f_biologico').val()) || 0;
+		if (bio !== 0) data.f_biologico = bio;
+		return data;
+	},
+
+	// Build a plain object with filter arrays (for JSON.stringify)
+	_buildFilterPayload: function() {
+		var payload = {};
+		var fields = ['f_programa','f_medicamento','f_eps','f_operador','f_medico','f_estado','f_estadovital','f_regimen'];
+		fields.forEach(function(f) {
+			var vals = BulkSend._getFilterVals(f);
+			if (vals.length) payload[f] = vals;
+		});
+		var bio = parseInt($('#bulk-filter-f_biologico').val()) || 0;
+		if (bio !== 0) payload.f_biologico = bio;
+		return payload;
+	},
+
+	_formatDuration: function(seconds) {
+		if (seconds < 60) return Math.round(seconds) + ' seg';
+		if (seconds < 3600) {
+			var m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
+			return m + ' min' + (s ? ' ' + s + ' seg' : '');
+		}
+		var h = Math.floor(seconds / 3600), m = Math.round((seconds % 3600) / 60);
+		return h + ' h ' + m + ' min';
+	},
+
+	countFilteredPatients: function() {
+		var data = this._buildFilterData();
+		data.action = 'count';
+		var $result = $('#bulk-filter-count-result');
+		$result.text('...');
+		$('#bulk-filter-load-btn').hide();
+		$('#bulk-filter-direct-launch').hide();
+		var self = this;
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/recipients.php',
+			method: 'GET',
+			data: data,
+			dataType: 'json',
+			success: function(resp) {
+				if (resp.success) {
+					var cnt = resp.count;
+					var color = cnt > 5000 ? '#dc2626' : cnt > 1000 ? '#d97706' : '#16a34a';
+					$result.html('<span style="color:' + color + ';font-weight:bold;">' + cnt.toLocaleString() + ' pacientes</span>');
+
+					if (cnt > 0) {
+						// Calculate time estimate
+						var rateMs = (typeof BulkRateLimitMs !== 'undefined') ? BulkRateLimitMs : 100;
+						var batchSz = (typeof BulkBatchSize !== 'undefined') ? BulkBatchSize : 50;
+						var batchDelayMs = 1000; // 1s between batch calls
+						var batches = Math.ceil(cnt / batchSz);
+						var estSecs = (batches * (batchSz * rateMs + batchDelayMs)) / 1000;
+						var estStr = self._formatDuration(estSecs);
+
+						var html = '<strong>' + cnt.toLocaleString() + ' pacientes</strong> encontrados.<br>';
+						html += 'Se envíarán en <strong>' + batches + ' lotes</strong> de ' + batchSz + ' mensajes cada uno.<br>';
+						html += 'Tiempo estimado: <strong>' + estStr + '</strong> (la pestaña debe permanecer abierta).';
+						$('#bulk-filter-time-estimate').html(html);
+						$('#bulk-filter-direct-launch').show();
+
+						// Also show the "load to chips" option for small counts
+						if (cnt <= 500) {
+							$('#bulk-filter-load-btn').show();
+							$('#bulk-filter-load-note').text('(o agrégalos al listado para revisar antes de enviar)');
+						} else {
+							$('#bulk-filter-load-btn').hide();
+						}
+					}
+				}
+			}
+		});
+	},
+
+	loadFilteredRecipients: function() {
+		var data = this._buildFilterData();
+		data.action = 'filter';
+		data.limit = 500;
+		var $btn = $('#bulk-filter-load-btn');
+		$btn.prop('disabled', true).text('Cargando...');
+		var self = this;
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/recipients.php',
+			method: 'GET',
+			data: data,
+			dataType: 'json',
+			success: function(resp) {
+				if (resp.success) {
+					var added = 0;
+					resp.recipients.forEach(function(r) {
+						var phones = r.phones || [];
+						// Use first available phone (prefer mobile)
+						var p = phones[0];
+						if (!p) return;
+						var flatItem = {
+							id: r.id + '_' + p.type,
+							name: r.name,
+							phone: p.number,
+							phone_type: p.type,
+							company: r.company || '',
+							fk_soc: r.fk_soc || 0,
+							source: r.source,
+							source_id: r.source_id
+						};
+						if (!BulkSend.selectedRecipients[flatItem.id]) {
+							BulkSend.addRecipient(flatItem.id, flatItem);
+							added++;
+						}
+					});
+					$btn.prop('disabled', false).text('✓ ' + added + ' destinatarios agregados');
+				}
+			},
+			error: function() {
+				$btn.prop('disabled', false).text('Error — intentar de nuevo');
+			}
+		});
+	},
+
+	startBulkSendFromFilter: function() {
+		if (!BulkSend.selectedTemplate) {
+			alert('Seleccione un template primero (Paso 1)');
+			return;
+		}
+
+		// Collect template variable params
+		var bulkParamsMap = {};
+		$('.bulk-var-input').each(function() {
+			var vn = parseInt($(this).data('var'), 10);
+			if (vn > 0) bulkParamsMap[vn] = $(this).val() || '';
+		});
+		var bulkMaxVar = 0;
+		$.each(bulkParamsMap, function(k) { if (parseInt(k) > bulkMaxVar) bulkMaxVar = parseInt(k); });
+		var params = [];
+		for (var _vi = 1; _vi <= bulkMaxVar; _vi++) { params.push(bulkParamsMap[_vi] || ''); }
+
+		var payload = BulkSend._buildFilterPayload();
+		payload.template_id   = BulkSend.selectedTemplate.rowid || BulkSend.selectedTemplate.id;
+		payload.template_name = BulkSend.selectedTemplate.name;
+		payload.params        = params;
+		payload.line_id       = BulkSend.getSelectedLineId();
+
+		var $btn = $('#bulk-filter-direct-send-btn');
+		$btn.prop('disabled', true).text('Creando lote en el servidor...');
+
+		// Disable all form controls during processing
+		$('#bulk-send-form .bulk-send-section').css('opacity', '0.5').find('input, select, button').prop('disabled', true);
+		$('#bulk-send-progress').show();
+		$('#bulk-progress-actions').hide();
+		$('#bulk-errors-panel').hide();
+		$('#bulk-show-errors-btn').hide();
+		$('#bulk-progress-sending-actions').show();
+		$('#bulk-abort-btn').prop('disabled', false).text('⛔ Cancelar envío ahora');
+
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/process_queue.php?action=create_batch_from_filter&token=' + encodeURIComponent($('input[name="token"]').val()),
+			method: 'POST',
+			contentType: 'application/json',
+			data: JSON.stringify(payload),
+			dataType: 'json',
+			success: function(data) {
+				if (data.success) {
+					BulkSend.currentBatchId = data.batch_id;
+					$('#bulk-stat-total').text(data.total.toLocaleString());
+					$('#bulk-stat-pending').text(data.total.toLocaleString());
+					// Show skipped count if any patients had no valid phone
+					if (data.skipped > 0) {
+						var $skippedNote = $('#bulk-skipped-note');
+						if (!$skippedNote.length) {
+							$('#bulk-progress-stats').append('<div id="bulk-skipped-note" style="font-size:12px;color:#d97706;margin-top:6px;"></div>');
+						}
+						$('#bulk-skipped-note').text('⚠️ ' + data.skipped.toLocaleString() + ' pacientes omitidos por no tener número válido.');
+					}
+					BulkSend.processNextBatch();
+				} else {
+					alert('Error: ' + (data.error || 'Error desconocido'));
+					BulkSend.resetForm();
+					$btn.prop('disabled', false).text('🚀 Iniciar envío masivo');
+				}
+			},
+			error: function() {
+				alert('Error de conexión');
+				BulkSend.resetForm();
+				$btn.prop('disabled', false).text('🚀 Iniciar envío masivo');
+			}
+		});
+	},
+
+	addDirectPhones: function() {
+		var raw = $('#bulk-phones-input').val();
+		if (!raw.trim()) return;
+		var self = this;
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/recipients.php',
+			method: 'GET',
+			data: { action: 'phones', numbers: raw },
+			dataType: 'json',
+			success: function(resp) {
+				if (resp.success) {
+					var added = 0;
+					resp.recipients.forEach(function(r) {
+						var p = (r.phones || [])[0];
+						if (!p) return;
+						var flatItem = {
+							id: r.id,
+							name: r.name,
+							phone: p.number,
+							phone_type: 'phone',
+							company: '',
+							fk_soc: 0,
+							source: 'manual',
+							source_id: 0
+						};
+						if (!BulkSend.selectedRecipients[flatItem.id]) {
+							BulkSend.addRecipient(flatItem.id, flatItem);
+							added++;
+						}
+					});
+					if (added > 0) $('#bulk-phones-input').val('');
+				}
+			}
+		});
 	},
 
 	loadTemplates: function() {
@@ -4362,7 +4652,8 @@ var BulkSend = {
 					var select = $('#bulk-template-select');
 					select.find('option:not(:first)').remove();
 					data.templates.forEach(function(tpl) {
-						select.append('<option value="' + tpl.rowid + '">' + BulkSend.escapeHtml(tpl.name) + ' (' + tpl.language + ')</option>');
+						var tplId = tpl.rowid || tpl.id; // rowid when cast from PHP object
+						select.append('<option value="' + tplId + '">' + BulkSend.escapeHtml(tpl.name) + ' (' + tpl.language + ')</option>');
 					});
 				}
 			}
@@ -4631,6 +4922,10 @@ var BulkSend = {
 		$('#bulk-send-btn').prop('disabled', true).text(WhatsAppChat._t('Sending'));
 		$('#bulk-send-progress').show();
 		$('#bulk-progress-actions').hide();
+		$('#bulk-errors-panel').hide();
+		$('#bulk-show-errors-btn').hide();
+		$('#bulk-progress-sending-actions').show();
+		$('#bulk-abort-btn').prop('disabled', false).text('⛔ Cancelar envío ahora');
 		$('#bulk-send-form .bulk-send-section').css('opacity', '0.5').find('input, select, button').prop('disabled', true);
 
 		// Create batch
@@ -4673,7 +4968,7 @@ var BulkSend = {
 			data: {
 				action: 'process',
 				batch_id: BulkSend.currentBatchId,
-				limit: 10,
+				limit: 50,
 				token: $('input[name="token"]').val()
 			},
 			dataType: 'json',
@@ -4711,22 +5006,74 @@ var BulkSend = {
 		$('#bulk-stat-sent').text(stats.sent || 0);
 		$('#bulk-stat-failed').text(stats.failed || 0);
 		$('#bulk-stat-pending').text(stats.pending || 0);
+
+		// Show errors button as soon as there are failures
+		var failed = stats.failed || 0;
+		if (failed > 0) {
+			$('#bulk-show-errors-btn').show().text('⚠️ Ver ' + failed + ' error' + (failed > 1 ? 'es' : ''));
+		} else {
+			$('#bulk-show-errors-btn').hide();
+		}
 	},
 
 	onBatchComplete: function(stats) {
 		$('#bulk-progress-bar').css('width', '100%');
 		$('#bulk-progress-text').text('100%');
+		BulkSend.updateProgressUI(stats);
+		// Hide abort button, show completion actions
+		$('#bulk-progress-sending-actions').hide();
 		$('#bulk-progress-actions').show();
 		$('#bulk-cancel-btn').hide();
-		BulkSend.updateProgressUI(stats);
+
+		// Auto-open error panel if there are failures
+		if ((stats.failed || 0) > 0 && BulkSend.currentBatchId) {
+			$('#bulk-errors-panel').show();
+			BulkSend.loadErrorDetails();
+		}
+	},
+
+	loadErrorDetails: function() {
+		if (!BulkSend.currentBatchId) return;
+		var $list = $('#bulk-errors-list');
+		$list.html('<em style="color:#888;">Cargando...</em>');
+		$.ajax({
+			url: WhatsAppAjaxBase + 'ajax/process_queue.php',
+			method: 'GET',
+			data: { action: 'get_errors', batch_id: BulkSend.currentBatchId },
+			dataType: 'json',
+			success: function(resp) {
+				if (!resp.success || !resp.errors || !resp.errors.length) {
+					$list.html('<em style="color:#888;">No hay errores registrados aún.</em>');
+					return;
+				}
+				var html = '<table style="width:100%;border-collapse:collapse;">';
+				html += '<tr style="background:#fde8e8;"><th style="padding:4px 6px;text-align:left;">Nombre</th><th style="padding:4px 6px;text-align:left;">Teléfono</th><th style="padding:4px 6px;text-align:left;">Error de Meta</th></tr>';
+				resp.errors.forEach(function(e) {
+					html += '<tr style="border-top:1px solid #fca5a5;">';
+					html += '<td style="padding:3px 6px;">' + BulkSend.escapeHtml(e.name || '-') + '</td>';
+					html += '<td style="padding:3px 6px;font-family:monospace;">' + BulkSend.escapeHtml(e.phone || '-') + '</td>';
+					html += '<td style="padding:3px 6px;color:#b91c1c;">' + BulkSend.escapeHtml(e.error || '(sin detalle)') + '</td>';
+					html += '</tr>';
+				});
+				html += '</table>';
+				if (resp.errors.length === 20) {
+					html += '<p style="margin:6px 0 0;color:#888;font-size:11px;">Mostrando los últimos 20 errores.</p>';
+				}
+				$list.html(html);
+			}
+		});
 	},
 
 	cancelBulkSend: function() {
 		if (!BulkSend.currentBatchId) return;
 
+		// Stop polling immediately
 		if (BulkSend.progressPollTimer) {
 			clearTimeout(BulkSend.progressPollTimer);
 		}
+
+		var $abortBtn = $('#bulk-abort-btn');
+		$abortBtn.prop('disabled', true).text('Cancelando...');
 
 		$.ajax({
 			url: WhatsAppAjaxBase + 'ajax/process_queue.php',
@@ -4739,7 +5086,7 @@ var BulkSend = {
 			dataType: 'json',
 			success: function(data) {
 				if (data.success) {
-					// Refresh stats
+					// Refresh stats then show completion state
 					$.ajax({
 						url: WhatsAppAjaxBase + 'ajax/process_queue.php',
 						method: 'GET',
@@ -4747,10 +5094,15 @@ var BulkSend = {
 						dataType: 'json',
 						success: function(d) {
 							if (d.stats) BulkSend.updateProgressUI(d.stats);
-							BulkSend.onBatchComplete(d.stats);
+							BulkSend.onBatchComplete(d.stats || {});
 						}
 					});
+				} else {
+					$abortBtn.prop('disabled', false).text('⛔ Cancelar envío ahora');
 				}
+			},
+			error: function() {
+				$abortBtn.prop('disabled', false).text('⛔ Cancelar envío ahora');
 			}
 		});
 	},
@@ -4775,6 +5127,15 @@ $(document).ready(function() {
 	if ($('#bulk-send-form').length) {
 		BulkSend.init();
 	}
+
+	// ── Bulk send mode tabs (standalone, no dependency on BulkSend.init) ──
+	$(document).on('click', '.bulk-mode-tab', function() {
+		var $btn = $(this);
+		$('.bulk-mode-tab').removeClass('active');
+		$btn.addClass('active');
+		$('.bulk-mode-panel').hide();
+		$('#bulk-mode-' + $btn.data('mode')).show();
+	});
 });
 
 // ==========================================
