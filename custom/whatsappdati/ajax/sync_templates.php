@@ -85,6 +85,10 @@ if ($action === 'list') {
 	$enriched = array();
 	foreach ($templates as $tpl) {
 		$item = (array) $tpl;
+		// Ensure rowid is present (JS dropdowns use tpl.rowid)
+		if (!isset($item['rowid'])) {
+			$item['rowid'] = $tpl->id;
+		}
 		// variables may be stored in DB but not fetched by fetchAll, set empty if missing
 		if (!isset($item['variables'])) {
 			$item['variables'] = '[]';

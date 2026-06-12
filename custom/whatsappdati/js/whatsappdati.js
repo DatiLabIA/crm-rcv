@@ -4652,8 +4652,7 @@ var BulkSend = {
 					var select = $('#bulk-template-select');
 					select.find('option:not(:first)').remove();
 					data.templates.forEach(function(tpl) {
-						var tplId = tpl.rowid || tpl.id; // rowid when cast from PHP object
-						select.append('<option value="' + tplId + '">' + BulkSend.escapeHtml(tpl.name) + ' (' + tpl.language + ')</option>');
+						select.append('<option value="' + tpl.rowid + '">' + BulkSend.escapeHtml(tpl.name) + ' (' + tpl.language + ')</option>');
 					});
 				}
 			}
