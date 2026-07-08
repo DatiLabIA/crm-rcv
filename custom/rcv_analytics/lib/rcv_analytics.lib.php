@@ -8,7 +8,7 @@
  */
 function rcv_analytics_prepare_head()
 {
-    global $langs, $conf;
+    global $langs, $conf, $user;
 
     $h = 0;
     $head = array();
@@ -32,6 +32,14 @@ function rcv_analytics_prepare_head()
     $head[$h][1] = $langs->trans('Exportar');
     $head[$h][2] = 'export';
     $h++;
+
+    // Pestaña de administración de roles/alcance: solo para administradores
+    if (!empty($user->admin)) {
+        $head[$h][0] = dol_buildpath('/rcv_analytics/admin/roles.php', 1);
+        $head[$h][1] = img_picto('', 'setup', 'class="paddingright"').'Roles y permisos';
+        $head[$h][2] = 'roles';
+        $h++;
+    }
 
     return $head;
 }

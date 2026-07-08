@@ -26,6 +26,12 @@ class RcvAnalyticsEngine
     /** @var array Filtros activos */
     private $filters = array();
 
+    /**
+     * @var string Condición interna del alcance (roles) sobre se2.programa/se2.medicamento.
+     *             Vacío = usuario sin restricción (ve todo).
+     */
+    private $scopeInnerCond = '';
+
     /** Campos de extrafields del paciente en llx_societe_extrafields */
     const PATIENT_EXTRA_FIELDS = array(
         'birthdate', 'tipo_de_afiliacion', 'estado_vital', 'tipo_de_status',
@@ -109,6 +115,64 @@ class RcvAnalyticsEngine
     public function __construct($db)
     {
         $this->db = $db;
+
+        // Aplica automáticamente el alcance (roles) del usuario logueado, de modo
+        // que TODAS las métricas y exports quedan restringidas sin tocar cada página.
+        global $user;
+        if (is_object($user) && !empty($user->id)) {
+            $this->applyUserScope($user);
+        }
+    }
+
+    /**
+     * Calcula y almacena el fragmento de restricción por alcance (programas/medicamentos)
+     * del usuario, a partir de sus roles de RcvAnalyticsScope.
+     *
+     * @param  User $user
+     * @return void
+     */
+    public function applyUserScope($user)
+    {
+        require_once __DIR__.'/rcvanalyticsscope.class.php';
+
+        $scope = RcvAnalyticsScope::getUserScope($this->db, $user);
+
+        if (!empty($scope['unrestricted'])) {
+            $this->scopeInnerCond = '';
+            return;
+        }
+
+        $roleClauses = array();
+        foreach ($scope['roles'] as $r) {
+            $parts = array();
+            if (!empty($r['programas'])) {
+                $parts[] = 'se2.programa IN ('.implode(',', array_map('intval', $r['programas'])).')';
+            }
+            if (!empty($r['medicamentos'])) {
+                $parts[] = 'se2.medicamento IN ('.implode(',', array_map('intval', $r['medicamentos'])).')';
+            }
+            if (!empty($parts)) {
+                $roleClauses[] = '('.implode(' AND ', $parts).')';
+            }
+        }
+
+        // Usuario restringido sin criterios válidos → no ve nada.
+        $this->scopeInnerCond = empty($roleClauses) ? '0=1' : '('.implode(' OR ', $roleClauses).')';
+    }
+
+    /**
+     * Devuelve el fragmento AND que restringe por alcance, aplicado sobre la columna
+     * que referencia el rowid del paciente (societe). Vacío si el usuario no está restringido.
+     *
+     * @param  string $keyColumn  Columna con el id de paciente (ej. 's.rowid' o 'c.fk_soc')
+     * @return string
+     */
+    private function scopeCondition($keyColumn)
+    {
+        if ($this->scopeInnerCond === '') {
+            return '';
+        }
+        return ' AND '.$keyColumn.' IN (SELECT se2.fk_object FROM '.MAIN_DB_PREFIX.'societe_extrafields se2 WHERE '.$this->scopeInnerCond.')';
     }
 
     // -------------------------------------------------------------------------
@@ -264,6 +328,9 @@ class RcvAnalyticsEngine
         if (!empty($this->filters['patient_date_end'])) {
             $where .= ' AND s.datec <= \''.$this->db->escape($this->filters['patient_date_end']).' 23:59:59\'';
         }
+
+        // Restricción obligatoria por alcance del usuario (roles de programa/medicamento)
+        $where .= $this->scopeCondition('s.rowid');
 
         return array('where' => $where, 'joins' => $joins);
     }
@@ -981,6 +1048,7 @@ class RcvAnalyticsEngine
                 .' INNER JOIN '.MAIN_DB_PREFIX.'societe_extrafields se ON se.'.$field.' = ref.rowid'
                 .' INNER JOIN '.MAIN_DB_PREFIX.'societe s ON s.rowid = se.fk_object'
                 .' WHERE s.canvas = \'patient@cabinetmed\' AND s.entity = '.$entity
+                .$this->scopeCondition('s.rowid')
                 .' GROUP BY ref.rowid, ref.'.$labelCol
                 .' ORDER BY label ASC';
 
@@ -1027,6 +1095,7 @@ class RcvAnalyticsEngine
             .' INNER JOIN '.MAIN_DB_PREFIX.'societe s ON s.rowid = se.fk_object'
             .' WHERE s.canvas = \'patient@cabinetmed\' AND s.entity = '.$entity
             .' AND se.'.$field.' IS NOT NULL AND se.'.$field.' != \'\''
+            .$this->scopeCondition('s.rowid')
             .' ORDER BY val ASC';
 
         $rows   = $this->fetchRows($sql);
@@ -1048,6 +1117,7 @@ class RcvAnalyticsEngine
             .' FROM '.MAIN_DB_PREFIX.'cabinetmed_extcons c'
             .' WHERE c.entity = '.$entity
             .' AND c.tipo_atencion IS NOT NULL AND c.tipo_atencion != \'\''
+            .$this->scopeCondition('c.fk_soc')
             .' ORDER BY val ASC';
 
         $rows   = $this->fetchRows($sql);
@@ -1074,6 +1144,7 @@ class RcvAnalyticsEngine
             .' FROM '.MAIN_DB_PREFIX.'c_departements dep'
             .' INNER JOIN '.MAIN_DB_PREFIX.'societe s ON s.fk_departement = dep.rowid'
             .' WHERE s.canvas = \'patient@cabinetmed\' AND s.entity = '.$entity
+            .$this->scopeCondition('s.rowid')
             .' GROUP BY dep.rowid, dep.nom'
             .' ORDER BY dep.nom ASC';
 
@@ -1097,6 +1168,7 @@ class RcvAnalyticsEngine
             .' FROM '.MAIN_DB_PREFIX.'societe s'
             .' WHERE s.canvas = \'patient@cabinetmed\' AND s.entity = '.$entity
             .' AND s.town IS NOT NULL AND s.town != \'\''
+            .$this->scopeCondition('s.rowid')
             .' ORDER BY val ASC';
 
         $rows = $this->fetchRows($sql);

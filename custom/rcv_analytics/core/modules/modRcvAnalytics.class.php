@@ -27,7 +27,7 @@ class modRcvAnalytics extends DolibarrModules
 
         $this->description = "Analíticas avanzadas de pacientes y consultas";
         $this->descriptionlong = "Módulo de reportes e inteligencia de negocios sobre pacientes, consultas extendidas, adherencias, medicamentos, EPS, operadores logísticos y más.";
-        $this->version = '1.0.0';
+        $this->version = '1.1.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name); // MAIN_MODULE_RCVANALYTICS
         $this->picto = 'stats';
         $this->editor_name = 'DatiLab';
@@ -143,6 +143,22 @@ class modRcvAnalytics extends DolibarrModules
             'position' => 50,
             'enabled'  => '$conf->rcvanalytics->enabled',
             'perms'    => '$user->hasRight("rcv_analytics", "export")',
+            'target'   => '',
+            'user'     => 0,
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'  => 'fk_mainmenu=rcv_analytics',
+            'type'     => 'left',
+            'titre'    => 'Roles y permisos',
+            'mainmenu' => 'rcv_analytics',
+            'leftmenu' => 'rcv_analytics_roles',
+            'url'      => '/custom/rcv_analytics/admin/roles.php',
+            'langs'    => 'rcv_analytics@rcv_analytics',
+            'position' => 60,
+            'enabled'  => '$conf->rcvanalytics->enabled',
+            'perms'    => '$user->admin',
             'target'   => '',
             'user'     => 0,
         );
