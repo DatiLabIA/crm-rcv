@@ -119,80 +119,77 @@
     // Update consultation
     if ($action == 'update' && $permtocreate && !$cancel) {
         $error = 0;
-        
-        
-        if (!$error) {
-            // Get posted data
-            // Legacy: mantener fk_user con el primer usuario seleccionado
-            $assigned_users = GETPOST('assigned_users', 'array');
-            if (!is_array($assigned_users)) {
-                $assigned_users = array();
-            }
-            // Si no se seleccionó ningún usuario, asignar al usuario actual por defecto
-            if (empty($assigned_users)) {
-                $assigned_users = array($user->id);
-            }
-            $object->fk_user = !empty($assigned_users) ? (int) $assigned_users[0] : 0;
-            
-            $object->date_start = dol_mktime(GETPOST('date_starthour', 'int'), GETPOST('date_startmin', 'int'), 0, 
-                                            GETPOST('date_startmonth', 'int'), GETPOST('date_startday', 'int'), 
-                                            GETPOST('date_startyear', 'int'));
-            $object->date_end = dol_mktime(GETPOST('date_endhour', 'int'), GETPOST('date_endmin', 'int'), 0,
-                                            GETPOST('date_endmonth', 'int'), GETPOST('date_endday', 'int'), 
-                                            GETPOST('date_endyear', 'int'));
-            $object->tipo_atencion = GETPOST('tipo_atencion', 'alpha');
-            
-            // Type-specific legacy fields: solo actualizar si el campo fue realmente enviado
-            // (los campos en secciones ocultas/deshabilitadas no se envían por POST)
-            $legacy_fields = array(
-                'cumplimiento' => 'alpha', 'razon_inc' => 'alpha', 'mes_actual' => 'alpha',
-                'proximo_mes' => 'alpha', 'dificultad' => 'int', 'motivo' => 'alpha',
-                'diagnostico' => 'restricthtml', 'procedimiento' => 'alpha',
-                'insumos_enf' => 'alpha', 'rx_num' => 'alpha', 'medicamentos' => 'restricthtml'
-            );
-            foreach ($legacy_fields as $fname => $ftype) {
-                if (GETPOSTISSET($fname)) {
-                    $object->$fname = GETPOST($fname, $ftype);
-                }
-                // Si no fue enviado, mantener el valor existente del objeto (ya cargado en fetch)
-            }
 
-            $object->note_private = GETPOST('note_private', 'restricthtml');
-            // note_public is read-only, keep existing value from fetch
-            
-            // Observaciones: prefer imgtext hidden input (JS ran), fallback to textarea (JS didn't)
-            $obs_imgtext = GETPOST('observaciones_html', 'restricthtml');
-            if ($obs_imgtext !== '' && $obs_imgtext !== null) {
-                $object->observaciones = $obs_imgtext;
-            } else {
-                $obs_fallback = GETPOST('observaciones', 'restricthtml');
-                $object->observaciones = ($obs_fallback !== '' && $obs_fallback !== null) ? $obs_fallback : $object->observaciones;
-            }
-            
-            $object->status = GETPOST('status', 'int');
-            
-            // Recurrence fields
-            $old_recurrence_enabled = $object->recurrence_enabled;
-            $object->recurrence_enabled = GETPOST('recurrence_enabled', 'int') ? 1 : 0;
-            $object->recurrence_interval = GETPOST('recurrence_interval', 'int');
-            $object->recurrence_unit = GETPOST('recurrence_unit', 'alpha');
-            $object->recurrence_end_type = GETPOST('recurrence_end_type', 'alpha');
-            $rec_end_date_day = GETPOST('recurrence_end_dateday', 'int');
-            $rec_end_date_month = GETPOST('recurrence_end_datemonth', 'int');
-            $rec_end_date_year = GETPOST('recurrence_end_dateyear', 'int');
-            if ($rec_end_date_day > 0 && $rec_end_date_month > 0 && $rec_end_date_year > 0) {
-                $object->recurrence_end_date = sprintf('%04d-%02d-%02d', $rec_end_date_year, $rec_end_date_month, $rec_end_date_day);
-            } else {
-                $object->recurrence_end_date = null;
-            }
+        // Get posted data
+        // Legacy: mantener fk_user con el primer usuario seleccionado
+        $assigned_users = GETPOST('assigned_users', 'array');
+        if (!is_array($assigned_users)) {
+            $assigned_users = array();
+        }
+        // Si no se seleccionó ningún usuario, asignar al usuario actual por defecto
+        if (empty($assigned_users)) {
+            $assigned_users = array($user->id);
+        }
+        $object->fk_user = !empty($assigned_users) ? (int) $assigned_users[0] : 0;
 
-        
+        $object->date_start = dol_mktime(GETPOST('date_starthour', 'int'), GETPOST('date_startmin', 'int'), 0,
+                                        GETPOST('date_startmonth', 'int'), GETPOST('date_startday', 'int'),
+                                        GETPOST('date_startyear', 'int'));
+        $object->date_end = dol_mktime(GETPOST('date_endhour', 'int'), GETPOST('date_endmin', 'int'), 0,
+                                        GETPOST('date_endmonth', 'int'), GETPOST('date_endday', 'int'),
+                                        GETPOST('date_endyear', 'int'));
+        $object->tipo_atencion = GETPOST('tipo_atencion', 'alpha');
+
+        // Type-specific legacy fields: solo actualizar si el campo fue realmente enviado
+        // (los campos en secciones ocultas/deshabilitadas no se envían por POST)
+        $legacy_fields = array(
+            'cumplimiento' => 'alpha', 'razon_inc' => 'alpha', 'mes_actual' => 'alpha',
+            'proximo_mes' => 'alpha', 'dificultad' => 'int', 'motivo' => 'alpha',
+            'diagnostico' => 'restricthtml', 'procedimiento' => 'alpha',
+            'insumos_enf' => 'alpha', 'rx_num' => 'alpha', 'medicamentos' => 'restricthtml'
+        );
+        foreach ($legacy_fields as $fname => $ftype) {
+            if (GETPOSTISSET($fname)) {
+                $object->$fname = GETPOST($fname, $ftype);
+            }
+            // Si no fue enviado, mantener el valor existente del objeto (ya cargado en fetch)
+        }
+
+        $object->note_private = GETPOST('note_private', 'restricthtml');
+        // note_public is read-only, keep existing value from fetch
+
+        // Observaciones: prefer imgtext hidden input (JS ran), fallback to textarea (JS didn't)
+        $obs_imgtext = GETPOST('observaciones_html', 'restricthtml');
+        if ($obs_imgtext !== '' && $obs_imgtext !== null) {
+            $object->observaciones = $obs_imgtext;
+        } else {
+            $obs_fallback = GETPOST('observaciones', 'restricthtml');
+            $object->observaciones = ($obs_fallback !== '' && $obs_fallback !== null) ? $obs_fallback : $object->observaciones;
+        }
+
+        $object->status = GETPOST('status', 'int');
+
+        // Recurrence fields
+        $old_recurrence_enabled = $object->recurrence_enabled;
+        $object->recurrence_enabled = GETPOST('recurrence_enabled', 'int') ? 1 : 0;
+        $object->recurrence_interval = GETPOST('recurrence_interval', 'int');
+        $object->recurrence_unit = GETPOST('recurrence_unit', 'alpha');
+        $object->recurrence_end_type = GETPOST('recurrence_end_type', 'alpha');
+        $rec_end_date_day = GETPOST('recurrence_end_dateday', 'int');
+        $rec_end_date_month = GETPOST('recurrence_end_datemonth', 'int');
+        $rec_end_date_year = GETPOST('recurrence_end_dateyear', 'int');
+        if ($rec_end_date_day > 0 && $rec_end_date_month > 0 && $rec_end_date_year > 0) {
+            $object->recurrence_end_date = sprintf('%04d-%02d-%02d', $rec_end_date_year, $rec_end_date_month, $rec_end_date_day);
+        } else {
+            $object->recurrence_end_date = null;
+        }
+
         // Validation
         if (empty($object->tipo_atencion)) {
             $error++;
             setEventMessages($langs->trans("ErrorFieldRequired", "Tipo de consulta"), null, 'errors');
         }
-        
+
         if (!$error) {
             $result = $object->update($user);
             if ($result < 0) {
@@ -201,7 +198,7 @@
             } else {
                 // Guardar múltiples usuarios asignados
                 $object->setAssignedUsers($assigned_users, $user);
-                
+
                 // Manejar recurrencias: si cambió la configuración, regenerar
                 if ($object->recurrence_enabled) {
                     // Eliminar hijas futuras y regenerar
@@ -220,12 +217,9 @@
                         setEventMessages("Se eliminaron ".$deleted." consultas futuras pendientes", null, 'mesgs');
                     }
                 }
-                
+
                 setEventMessages($langs->trans("RecordModified"), null, 'mesgs');
                 $action = '';
-            }
-            } else {
-                $action = 'edit';
             }
         }
     }

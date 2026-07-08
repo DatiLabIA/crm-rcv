@@ -24,7 +24,7 @@ $langs->loadLangs(array("companies", "bills", "cabinetmed@cabinetmed", "cabinetm
 
 // Get parameters
 $action = GETPOST('action', 'aZ09');
-$massaction = GETPOST('massaction', 'alpha');
+$massaction = GETPOST('massaction', 'aZ09');
 $confirm = GETPOST('confirm', 'alpha');
 $toselect = GETPOST('toselect', 'array');
 $contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : 'atenciones';
@@ -111,6 +111,7 @@ if ($button_removefilter) {
     $search_date_endyear = '';
     $search_status = '';
     $search_favorites_only = '';
+    $search_programa = '';
 } else {
     // Get filter values
     $search_ref = GETPOST('search_ref', 'alpha');
@@ -125,6 +126,7 @@ if ($button_removefilter) {
     $search_date_endyear = GETPOST('search_date_endyear', 'int');
     $search_status = GETPOST('search_status', 'alpha');
     $search_favorites_only = GETPOST('search_favorites_only', 'int');
+    $search_programa = GETPOST('search_programa', 'int');
 }
 
 // Build date timestamps from components
@@ -145,22 +147,97 @@ $offset = $limit * $page;
 $pageprev = $page - 1;
 $pagenext = $page + 1;
 
-// Mass actions
-if (!empty($massaction) && $massaction == 'delete' && $permtodelete) {
+// Mass actions - gestión de encargados, cambio de estado y borrado
+// Flujo: el selector envía 'massaction' (assign_add, assign_remove, assign_replace, setstatus, predelete)
+//        y se muestra un panel de confirmación. Al confirmar llega action=confirm_xxx + confirm=yes.
+$arrayofselected = is_array($toselect) ? $toselect : array();
+
+if (!empty($arrayofselected) && $confirm == 'yes'
+    && in_array($action, array('confirm_assign_add', 'confirm_assign_remove', 'confirm_assign_replace', 'confirm_setstatus', 'confirm_delete'))) {
+
+    // Verificación de permisos por tipo de acción
+    if (in_array($action, array('confirm_assign_add', 'confirm_assign_remove', 'confirm_assign_replace', 'confirm_setstatus')) && !$permtocreate) {
+        accessforbidden();
+    }
+    if ($action == 'confirm_delete' && !$permtodelete) {
+        accessforbidden();
+    }
+
     $error = 0;
-    foreach ($toselect as $toselectid) {
-        $consultation = new ExtConsultation($db);
-        $result = $consultation->fetch($toselectid);
-        if ($result > 0) {
-            $result = $consultation->delete($user);
-            if ($result < 0) {
+    $nbok = 0;
+
+    // Operadores seleccionados en el diálogo (para acciones de encargados)
+    $reassign_users = GETPOST('reassign_users', 'array');
+    $reassign_users = array_values(array_filter(array_map('intval', (array) $reassign_users)));
+
+    // Estado seleccionado (para cambio de estado). -1 = no seleccionado
+    $new_status = GETPOSTISSET('new_status') ? GETPOST('new_status', 'int') : -1;
+
+    // Validaciones previas
+    $validation_error = '';
+    if (in_array($action, array('confirm_assign_add', 'confirm_assign_remove', 'confirm_assign_replace')) && empty($reassign_users)) {
+        $validation_error = 'Debe seleccionar al menos un operador.';
+    } elseif ($action == 'confirm_setstatus' && $new_status < 0) {
+        $validation_error = 'Debe seleccionar un estado.';
+    }
+
+    if ($validation_error) {
+        setEventMessages($validation_error, null, 'errors');
+        // Mantener el panel abierto para reintentar
+        $massaction = preg_replace('/^confirm_/', '', $action);
+        if ($massaction == 'delete') $massaction = 'predelete';
+    } else {
+        foreach ($arrayofselected as $selid) {
+            $cons = new ExtConsultation($db);
+            if ($cons->fetch($selid) <= 0) {
                 $error++;
-                setEventMessages($consultation->error, $consultation->errors, 'errors');
+                continue;
+            }
+
+            if ($action == 'confirm_assign_add') {
+                $cons->fetchAssignedUsers();
+                $existing = array_map('intval', $cons->getAssignedUserIds());
+                $merged = array_values(array_unique(array_merge($existing, $reassign_users)));
+                if ($cons->setAssignedUsers($merged, $user) > 0) $nbok++; else $error++;
+
+            } elseif ($action == 'confirm_assign_remove') {
+                $cons->fetchAssignedUsers();
+                $existing = array_map('intval', $cons->getAssignedUserIds());
+                $remaining = array_values(array_diff($existing, $reassign_users));
+                if ($cons->setAssignedUsers($remaining, $user) > 0) $nbok++; else $error++;
+
+            } elseif ($action == 'confirm_assign_replace') {
+                if ($cons->setAssignedUsers($reassign_users, $user) > 0) $nbok++; else $error++;
+
+            } elseif ($action == 'confirm_setstatus') {
+                $cons->status = (int) $new_status;
+                if ($cons->update($user) > 0) $nbok++; else $error++;
+
+            } elseif ($action == 'confirm_delete') {
+                if ($cons->delete($user) > 0) {
+                    $nbok++;
+                } else {
+                    $error++;
+                    setEventMessages($cons->error, $cons->errors, 'errors');
+                }
             }
         }
-    }
-    if (!$error) {
-        setEventMessages($langs->trans("RecordsDeleted", count($toselect)), null, 'mesgs');
+
+        if ($action == 'confirm_delete') {
+            if (!$error) setEventMessages($nbok.' atención(es) eliminada(s) correctamente.', null, 'mesgs');
+        } else {
+            if (!$error) {
+                setEventMessages($nbok.' atención(es) actualizada(s) correctamente.', null, 'mesgs');
+            } else {
+                setEventMessages('Se procesaron '.$nbok.' atención(es), con '.$error.' error(es).', null, 'warnings');
+            }
+        }
+
+        // Acción completada: limpiar para no re-mostrar el panel de confirmación
+        $massaction = '';
+        $action = 'list';
+        $toselect = array();
+        $arrayofselected = array();
     }
 }
 
@@ -190,11 +267,15 @@ $sql .= " c.recurrence_parent_id,";
 $sql .= " s.rowid as socid,";
 $sql .= " s.nom as patient_name,";
 $sql .= " s.code_client,";
+$sql .= " prog.nombre as programa,";
 // Subquery para verificar si es favorita
 $sql .= " (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_favorites f WHERE f.fk_extcons = c.rowid AND f.fk_user = ".$user->id.") as is_favorite";
 
 $sql .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons as c";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON c.fk_soc = s.rowid";
+// Join al programa del paciente (extrafield de societe -> gestion_programa)
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields as sef ON sef.fk_object = s.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_programa as prog ON prog.rowid = sef.programa";
 
 // Join para filtrar por usuario asignado (nueva tabla de múltiples usuarios)
 if ($search_user > 0) {
@@ -231,6 +312,9 @@ if ($search_status !== '' && $search_status !== null && $search_status !== '-1')
 }
 if ($search_favorites_only) {
     $sql .= " AND c.rowid IN (SELECT fk_extcons FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_favorites WHERE fk_user = ".$user->id.")";
+}
+if ($search_programa > 0) {
+    $sql .= " AND sef.programa = ".((int) $search_programa);
 }
 
 // Add sorting - FAVORITOS PRIMERO, luego por el campo seleccionado
@@ -280,8 +364,88 @@ if ($search_date_endmonth) $param .= '&search_date_endmonth='.((int) $search_dat
 if ($search_date_endyear) $param .= '&search_date_endyear='.((int) $search_date_endyear);
 if ($search_status !== '' && $search_status !== null && $search_status !== '-1') $param .= '&search_status='.urlencode($search_status);
 if ($search_favorites_only) $param .= '&search_favorites_only=1';
+if ($search_programa > 0) $param .= '&search_programa='.((int) $search_programa);
 if ($socid > 0) $param .= '&socid='.((int) $socid);
 if ($optioncss != '') $param .= '&optioncss='.urlencode($optioncss);
+
+// Panel de confirmación para acción masiva pendiente (formulario independiente, fuera del form de lista)
+$pending_massactions = array('assign_add', 'assign_remove', 'assign_replace', 'setstatus', 'predelete');
+if (in_array($massaction, $pending_massactions) && !empty($arrayofselected)) {
+    $nbsel = count($arrayofselected);
+    $confirmaction = '';
+    $paneltitle = '';
+    $needusers = false;
+
+    if ($massaction == 'assign_add' && $permtocreate) {
+        $confirmaction = 'confirm_assign_add';
+        $paneltitle = 'Agregar encargado(s) a '.$nbsel.' atención(es) seleccionada(s)';
+        $needusers = true;
+    } elseif ($massaction == 'assign_remove' && $permtocreate) {
+        $confirmaction = 'confirm_assign_remove';
+        $paneltitle = 'Quitar encargado(s) de '.$nbsel.' atención(es) seleccionada(s)';
+        $needusers = true;
+    } elseif ($massaction == 'assign_replace' && $permtocreate) {
+        $confirmaction = 'confirm_assign_replace';
+        $paneltitle = 'Reemplazar TODOS los encargados de '.$nbsel.' atención(es) seleccionada(s)';
+        $needusers = true;
+    } elseif ($massaction == 'setstatus' && $permtocreate) {
+        $confirmaction = 'confirm_setstatus';
+        $paneltitle = 'Cambiar estado de '.$nbsel.' atención(es) seleccionada(s)';
+    } elseif ($massaction == 'predelete' && $permtodelete) {
+        $confirmaction = 'confirm_delete';
+        $paneltitle = 'Eliminar '.$nbsel.' atención(es) seleccionada(s)';
+    }
+
+    if ($confirmaction) {
+        print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="confirmmassform">';
+        print '<input type="hidden" name="token" value="'.newToken().'">';
+        print '<input type="hidden" name="action" value="'.$confirmaction.'">';
+        print '<input type="hidden" name="confirm" value="yes">';
+        foreach ($arrayofselected as $selid) {
+            print '<input type="hidden" name="toselect[]" value="'.((int) $selid).'">';
+        }
+
+        print '<div class="center" style="margin:12px 0;">';
+        print '<table class="valid centpercent" style="max-width:620px;margin:0 auto;">';
+        print '<tr class="validtitre"><td colspan="2">'.img_picto('', 'pictoconfirm').' '.dol_escape_htmltag($paneltitle).'</td></tr>';
+
+        if ($needusers) {
+            $userlabel = ($massaction == 'assign_remove') ? 'Operador(es) a quitar' : (($massaction == 'assign_replace') ? 'Nuevos encargados' : 'Operador(es) a agregar');
+            print '<tr class="valid"><td class="fieldrequired">'.$userlabel.'</td><td>';
+            print $form->select_dolusers('', 'reassign_users', 1, null, 0, '', '', 0, 0, 0, '', 0, '', 'minwidth300', 0, 0, true);
+            print '</td></tr>';
+        } elseif ($massaction == 'setstatus') {
+            $statusopts = array('-1' => '&nbsp;') + ExtConsultation::getStatusArray();
+            print '<tr class="valid"><td class="fieldrequired">Nuevo estado</td><td>';
+            print $form->selectarray('new_status', $statusopts, '-1', 0, 0, 0, '', 0, 0, 0, '', 'maxwidth200');
+            print '</td></tr>';
+        } elseif ($massaction == 'predelete') {
+            print '<tr class="valid"><td colspan="2" class="center">'.img_warning().' ¿Confirma la eliminación? Esta acción no se puede deshacer.</td></tr>';
+        }
+
+        print '<tr class="valid"><td colspan="2" class="center">';
+        print '<input type="submit" class="button" value="Confirmar">';
+        print ' &nbsp; ';
+        print '<a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].($param ? '?'.ltrim($param, '&') : '').'">Cancelar</a>';
+        print '</td></tr>';
+        print '</table>';
+        print '</div>';
+        print '</form>';
+    }
+}
+
+// Botón de acciones masivas
+$arrayofmassactions = array();
+if ($permtocreate) {
+    $arrayofmassactions['assign_add']     = img_picto('', 'user', 'class="pictofixedwidth"').'Agregar encargado(s)';
+    $arrayofmassactions['assign_remove']  = img_picto('', 'user', 'class="pictofixedwidth"').'Quitar encargado(s)';
+    $arrayofmassactions['assign_replace'] = img_picto('', 'user', 'class="pictofixedwidth"').'Reemplazar encargados';
+    $arrayofmassactions['setstatus']      = img_picto('', 'setup', 'class="pictofixedwidth"').'Cambiar estado';
+}
+if ($permtodelete) {
+    $arrayofmassactions['predelete'] = img_picto('', 'delete', 'class="pictofixedwidth"').'Eliminar';
+}
+$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
 
 // Form
 print '<form method="POST" id="searchFormList" action="'.$_SERVER["PHP_SELF"].'" name="formfilter">';
@@ -309,7 +473,20 @@ if ($permtocreate) {
 $exporturl = dol_buildpath('/cabinetmed_extcons/export.php', 1);
 $newcardbutton .= dolGetButtonTitle('Exportar a Excel', 'Exportar consultas filtradas', 'fa fa-file-excel', $exporturl, '', $permtoread);
 
-print_barre_liste($title, $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, '', $num, $nbtotalofrecords, 'action', 0, $newcardbutton, '', $limit, 0, 0, 1);
+print_barre_liste($title, $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, $massactionbutton, $num, $nbtotalofrecords, 'action', 0, $newcardbutton, '', $limit, 0, 0, 1);
+
+// Cargar lista de programas para el filtro desplegable
+$programas_options = array();
+$sqlprog = "SELECT rowid, nombre FROM ".MAIN_DB_PREFIX."gestion_programa";
+$sqlprog .= " WHERE entity IN (".getEntity('societe').")";
+$sqlprog .= " ORDER BY nombre ASC";
+$resprog = $db->query($sqlprog);
+if ($resprog) {
+    while ($op = $db->fetch_object($resprog)) {
+        $programas_options[$op->rowid] = $op->nombre;
+    }
+    $db->free($resprog);
+}
 
 // Search fields table
 print '<div class="div-table-responsive">';
@@ -317,6 +494,9 @@ print '<table class="tagtable nobottomiftotal liste">';
 
 // Filter row
 print '<tr class="liste_titre_filter">';
+
+// Selección masiva (sin filtro)
+print '<td class="liste_titre center" style="width: 30px;"></td>';
 
 // Favorito (icono de filtro)
 print '<td class="liste_titre center" style="width: 30px;">';
@@ -331,6 +511,11 @@ print '</td>';
 // Patient
 print '<td class="liste_titre">';
 print '<input type="text" class="flat maxwidth100" name="search_patient" value="'.dol_escape_htmltag($search_patient).'">';
+print '</td>';
+
+// Programa
+print '<td class="liste_titre">';
+print $form->selectarray('search_programa', $programas_options, $search_programa, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150', 0, '', 0, 1);
 print '</td>';
 
 // Type - using selectarray with proper selected value
@@ -373,9 +558,11 @@ print '</tr>';
 
 // Column titles
 print '<tr class="liste_titre">';
+print '<td class="liste_titre center" style="width:30px;"><input type="checkbox" id="checkall" title="Seleccionar todo"></td>';
 print_liste_field_titre('<span style="font-size:1.2em;" title="Favoritos">★</span>', $_SERVER["PHP_SELF"], "", "", $param, 'align="center" style="width:40px;"', $sortfield, $sortorder);
 print_liste_field_titre("Ref", $_SERVER["PHP_SELF"], "c.rowid", "", $param, '', $sortfield, $sortorder);
 print_liste_field_titre("Patient", $_SERVER["PHP_SELF"], "s.nom", "", $param, '', $sortfield, $sortorder);
+print_liste_field_titre("Programa", $_SERVER["PHP_SELF"], "prog.nombre", "", $param, '', $sortfield, $sortorder);
 print_liste_field_titre("Type", $_SERVER["PHP_SELF"], "c.tipo_atencion", "", $param, '', $sortfield, $sortorder);
 print_liste_field_titre("Date", $_SERVER["PHP_SELF"], "c.date_start", "", $param, 'align="center"', $sortfield, $sortorder);
 print_liste_field_titre("Encargados", $_SERVER["PHP_SELF"], "", "", $param, '', $sortfield, $sortorder);
@@ -414,7 +601,13 @@ while ($i < min($num, $limit)) {
     }
     
     print '<tr class="'.$trclass.'">';
-    
+
+    // Checkbox de selección masiva
+    $isselected = in_array($obj->rowid, $arrayofselected);
+    print '<td class="center nowrap" style="width:30px;">';
+    print '<input class="flat checkforselect" type="checkbox" name="toselect[]" value="'.$obj->rowid.'"'.($isselected ? ' checked="checked"' : '').'>';
+    print '</td>';
+
     // Favorito (estrella)
     print '<td class="center nowraponall" style="width:40px;">';
     print '<a href="'.$_SERVER["PHP_SELF"].'?action=togglefavorite&id='.$obj->rowid.'&token='.newToken().$param.'" class="favorite-toggle" data-id="'.$obj->rowid.'">';
@@ -439,7 +632,16 @@ while ($i < min($num, $limit)) {
         print $patient->getNomUrl(1, 'customer');
     }
     print '</td>';
-    
+
+    // Programa
+    print '<td class="tdoverflowmax150">';
+    if (!empty($obj->programa)) {
+        print dol_escape_htmltag($obj->programa);
+    } else {
+        print '<span class="opacitymedium">-</span>';
+    }
+    print '</td>';
+
     // Type
     print '<td>';
     print $consultation->getTypeLabel($langs);
@@ -500,12 +702,25 @@ while ($i < min($num, $limit)) {
 
 // No records
 if ($num == 0) {
-    print '<tr><td colspan="9" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
+    print '<tr><td colspan="11" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
 }
 
 print '</table>';
 print '</div>';
 print '</form>';
+
+// JS: seleccionar/deseleccionar todo y sincronizar con la barra de acciones masivas
+print '<script type="text/javascript">
+jQuery(document).ready(function() {
+    jQuery("#checkall").click(function() {
+        var checked = jQuery(this).prop("checked");
+        jQuery(".checkforselect").prop("checked", checked);
+        if (typeof initCheckForSelect === "function") {
+            initCheckForSelect(0, "massaction", "checkforselect");
+        }
+    });
+});
+</script>';
 
 // CSS para favoritos
 print '<style>
