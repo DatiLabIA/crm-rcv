@@ -133,6 +133,18 @@ function rcv_print_inline_styles()
 .rcv-ms-opt:hover{background:#eff6ff}
 .rcv-ms-opt input[type="checkbox"]{margin:0;cursor:pointer;flex-shrink:0;accent-color:#2563eb}
 
+/* ── Botones de exportación ── */
+.rcv-btn-export-pdf,.rcv-btn-export-xlsx{display:inline-flex;align-items:center;gap:5px}
+.rcv-btn-export-pdf[disabled],.rcv-btn-export-xlsx[disabled]{opacity:.55;cursor:progress}
+.rcv-pdf-icon,.rcv-xlsx-icon{font-size:1.05em;line-height:1}
+
+/* ── Overlay de "Generando PDF…" ── */
+.rcv-export-overlay{position:fixed;inset:0;z-index:9800;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center}
+.rcv-export-overlay-inner{background:#fff;border-radius:8px;padding:22px 34px;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;min-width:210px}
+.rcv-export-overlay-inner p{margin:12px 0 0;font-size:.9em;color:#334155}
+.rcv-spinner{width:34px;height:34px;margin:0 auto;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:rcv-spin .8s linear infinite}
+@keyframes rcv-spin{to{transform:rotate(360deg)}}
+
 /* ── responsive ── */
 @media(max-width:1100px){.rcv-charts-row{grid-template-columns:repeat(2,minmax(0,1fr))}.rcv-chart-box{height:280px}}
 @media(max-width:900px){.rcv-chart-box{height:260px}}
@@ -341,6 +353,99 @@ function rcv_hidden_filters(array $filters)
 }
 
 /**
+ * Publica los filtros activos como variable JS, para que la exportación a PDF
+ * los imprima en la cabecera del documento.
+ *
+ * @param array $filterDesc  Salida de rcv_describe_filters()
+ */
+function rcv_print_active_filters_js(array $filterDesc)
+{
+    // Los HEX flags evitan que un valor de BD con '<' rompa el bloque <script>.
+    print '<script>var rcvActiveFilters = '
+        .json_encode(array_values($filterDesc), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+        .';</script>';
+}
+
+/**
+ * Botón que reenvía el formulario de filtros activo a export.php mediante
+ * formaction. Así la exportación XLSX hereda exactamente los mismos filtros
+ * que están aplicados en pantalla, sin reconstruir la query string a mano.
+ *
+ * IMPORTANTE: debe imprimirse DENTRO del <form> de filtros.
+ *
+ * @param string $type   Tipo de exportación de export.php (patients_list, patients, consultations, adherencia)
+ * @param string $label  Texto del botón
+ * @param string $title  Tooltip (por defecto, el propio label)
+ */
+function rcv_print_export_xlsx_button($type, $label, $title = '')
+{
+    global $user;
+
+    if (empty($user->admin) && !$user->hasRight('rcv_analytics', 'export')) return;
+
+    print '<button type="submit" class="butAction rcv-btn-export-xlsx" name="type" value="'.dol_escape_htmltag($type).'"'
+        .' formaction="'.dol_buildpath('/rcv_analytics/export.php', 1).'"'
+        .' title="'.dol_escape_htmltag($title !== '' ? $title : $label).'">'
+        .'<span class="rcv-xlsx-icon">&#128200;</span> '.dol_escape_htmltag($label).'</button>';
+}
+
+/**
+ * Traduce los filtros activos a pares [etiqueta, valor legible] para dejar
+ * constancia del alcance en las exportaciones (PDF y XLSX).
+ *
+ * Los valores de los filtros sellist/select son rowids o claves numéricas, así que
+ * se resuelven contra los mismos arrays de opciones que ya usa el formulario;
+ * de ese modo no se repite ninguna query.
+ *
+ * @param  array $filters     Filtros activos (clave interna => valor|array)
+ * @param  array $optionMaps  [clave de filtro => array [valor => etiqueta]]
+ * @return array  Lista de array(etiqueta, valor)
+ */
+function rcv_describe_filters(array $filters, array $optionMaps = array())
+{
+    global $langs;
+
+    $labelKeys = array(
+        'date_start'          => 'FechaDesde',
+        'date_end'            => 'FechaHasta',
+        'tipo_atencion'       => 'TipoAtencion',
+        'estado_consulta'     => 'EstadoConsulta',
+        'eps'                 => 'EPS',
+        'medicamento'         => 'Medicamento',
+        'operador_logistico'  => 'OperadorLogistico',
+        'tipo_de_poblacion'   => 'TipoPoblacion',
+        'programa'            => 'Programa',
+        'diagnostico'         => 'Diagnostico',
+        'ips_primaria'        => 'IPSPrimaria',
+        'estado_del_paciente' => 'EstadoPaciente',
+        'regimen'             => 'Regimen',
+        'medico_tratante'     => 'MedicoTratante',
+        'departamento'        => 'Departamento',
+        'ciudad'              => 'Ciudad',
+    );
+
+    $out = array();
+    foreach ($labelKeys as $key => $transKey) {
+        if (!isset($filters[$key])) continue;
+
+        $map    = isset($optionMaps[$key]) && is_array($optionMaps[$key]) ? $optionMaps[$key] : array();
+        $values = is_array($filters[$key]) ? $filters[$key] : array($filters[$key]);
+
+        $parts = array();
+        foreach ($values as $v) {
+            if ((string) $v === '') continue;
+            // PHP normaliza las claves numéricas, así que '0' encuentra la clave int 0.
+            $parts[] = isset($map[$v]) ? (string) $map[$v] : (string) $v;
+        }
+        if (empty($parts)) continue;
+
+        $out[] = array($langs->trans($transKey), implode(', ', $parts));
+    }
+
+    return $out;
+}
+
+/**
  * Construye query string con los filtros actuales para links entre páginas
  */
 function rcv_filter_querystring(array $filters)
@@ -354,6 +459,7 @@ function rcv_filter_querystring(array $filters)
         'operador_logistico'  => 'filter_operador_logistico',
         'tipo_de_poblacion'   => 'filter_tipo_de_poblacion',
         'tipo_atencion'       => 'filter_tipo_atencion',
+        'estado_consulta'     => 'filter_estado_consulta',
         'programa'            => 'filter_programa',
         'diagnostico'         => 'filter_diagnostico',
         'ips_primaria'        => 'filter_ips_primaria',

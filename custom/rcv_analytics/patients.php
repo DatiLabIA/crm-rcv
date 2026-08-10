@@ -87,7 +87,7 @@ $distDepto      = $engine->getPatientsByDepartamento();
 $distCiudad     = $engine->getPatientsByCiudad();
 
 llxHeader('', $langs->trans('PacientesAnaliticas'), '', '', 0, 0,
-    array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js'),
+    array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js?v=3'),
     array('/rcv_analytics/css/analytics.css'));
 
 // CDN libs for PDF export (jsPDF + html2canvas)
@@ -125,11 +125,28 @@ print '</div>';
 print '<div class="rcv-filter-actions">';
 print '<input type="submit" class="butAction" name="button_search" value="'.$langs->trans('Filtrar').'">';
 print '<input type="submit" class="butActionDelete" name="button_removefilter" value="'.$langs->trans('LimpiarFiltros').'">';
-print '<button type="button" class="butAction rcv-btn-export-pdf" onclick="rcvExportChartsPDF(\'Anal\u00edticas de Pacientes\', \'pacientes_analiticas\')" title="Exportar gráficas a PDF"><span class="rcv-pdf-icon">&#128196;</span> '.$langs->trans('ExportarPDF').'</button>';
+// Reenvían este mismo formulario a export.php, así el XLSX hereda los filtros activos.
+rcv_print_export_xlsx_button('patients', $langs->trans('ExportarExcelEstadisticas'), 'Exportar a Excel las distribuciones de esta página');
+rcv_print_export_xlsx_button('patients_list', $langs->trans('ExportarExcelListado'), 'Exportar a Excel el listado de pacientes (una fila por paciente)');
+print '<button type="button" class="butAction rcv-btn-export-pdf" onclick="rcvExportChartsPDF(\'Anal\u00edticas de Pacientes\', \'pacientes_analiticas\', rcvActiveFilters)" title="Exportar gráficas a PDF"><span class="rcv-pdf-icon">&#128196;</span> '.$langs->trans('ExportarPDF').'</button>';
 print '</div>';
 print '</div>';
 print '</form>';
 rcv_print_multisel_js();
+rcv_print_active_filters_js(rcv_describe_filters($filters, array(
+    'eps'                 => $optEps,
+    'medicamento'         => $optMedicamentos,
+    'operador_logistico'  => $optOperadores,
+    'tipo_de_poblacion'   => $optTipoPob,
+    'programa'            => $optProgramas,
+    'diagnostico'         => $optDiagnosticos,
+    'ips_primaria'        => $optIps,
+    'estado_del_paciente' => $optEstados,
+    'regimen'             => $optRegimen,
+    'medico_tratante'     => $optMedicoTratante,
+    'departamento'        => $optDepartamentos,
+    'ciudad'              => $optCiudades,
+)));
 
 // ─── KPI total ─────────────────────────────────────────────────────────────
 print '<div class="rcv-kpi-row">';
@@ -201,11 +218,6 @@ rcv_dist_block($langs->trans('Regimen'),                 $distRegimen,    'chart
 rcv_dist_block($langs->trans('TipoAfiliacion'),          $distAfiliacion, 'chartAfiliacion', 'doughnut');
 rcv_dist_block($langs->trans('PacientesPorDepartamento'), $distDepto,      'chartDepto');
 rcv_dist_block($langs->trans('PacientesPorCiudad'),       $distCiudad,     'chartCiudad');
-
-// ─── Exportar ──────────────────────────────────────────────────────────────
-print '<div style="margin:10px 0">';
-print '<a class="butAction" href="'.dol_buildpath('/rcv_analytics/export.php', 1).'?type=patients'.rcv_filter_querystring($filters).'">'.$langs->trans('ExportarCSV').'</a>';
-print '</div>';
 
 // ─── Chart.js: renderizar gráficas ────────────────────────────────────────
 $jByYear      = json_encode(rcv_chart_data($distByYear,    'periodo',   'total'));

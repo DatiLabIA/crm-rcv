@@ -45,23 +45,63 @@ $filters = array();
 if (!$button_removefilter) {
     $filters['date_start']         = $_date_start_ts ? dol_print_date($_date_start_ts, 'dayrfc') : '';
     $filters['date_end']           = $_date_end_ts   ? dol_print_date($_date_end_ts,   'dayrfc') : '';
-    $filters['medicamento']        = GETPOST('filter_medicamento', 'alpha');
-    $filters['eps']                = GETPOST('filter_eps', 'alpha');
-    $filters['operador_logistico'] = GETPOST('filter_operador_logistico', 'alpha');
-    $filters['tipo_de_poblacion']  = GETPOST('filter_tipo_de_poblacion', 'alpha');
-    $filters['tipo_atencion']      = GETPOST('filter_tipo_atencion', 'alpha');
-    $filters['programa']           = GETPOST('filter_programa', 'alpha');
-    $filters['diagnostico']        = GETPOST('filter_diagnostico', 'alpha');
-    $filters['ips_primaria']       = GETPOST('filter_ips_primaria', 'alpha');
-    $filters['estado_del_paciente']= GETPOST('filter_estado_del_paciente', 'alpha');
+    $filters['tipo_atencion']      = GETPOST('filter_tipo_atencion', 'array');
+    $filters['estado_consulta']    = GETPOST('filter_estado_consulta', 'array');
+    $filters['eps']                = GETPOST('filter_eps', 'array');
+    $filters['medicamento']        = GETPOST('filter_medicamento', 'array');
+    $filters['operador_logistico'] = GETPOST('filter_operador_logistico', 'array');
+    $filters['tipo_de_poblacion']  = GETPOST('filter_tipo_de_poblacion', 'array');
+    $filters['programa']           = GETPOST('filter_programa', 'array');
+    $filters['diagnostico']        = GETPOST('filter_diagnostico', 'array');
+    $filters['ips_primaria']       = GETPOST('filter_ips_primaria', 'array');
+    $filters['estado_del_paciente']= GETPOST('filter_estado_del_paciente', 'array');
+    $filters['regimen']            = GETPOST('filter_regimen', 'array');
+    $filters['medico_tratante']    = GETPOST('filter_medico_tratante', 'array');
+    $filters['departamento']       = GETPOST('filter_departamento', 'array');
+    $filters['ciudad']             = GETPOST('filter_ciudad', 'array');
 }
 
-$cleanFilters = array_filter($filters, function ($v) { return $v !== '' && $v !== null; });
+$cleanFilters = array_filter($filters, function ($v) {
+    if (is_array($v)) return !empty(array_filter($v, 'strlen'));
+    return $v !== '' && $v !== null;
+});
 $engine->setFilters($cleanFilters);
 
 // ─── Exportar XLSX ─────────────────────────────────────────────────────────
 if ($action === 'export' || !empty($exportType)) {
     $type = $exportType ?: GETPOST('export_type', 'alpha');
+    // Agrupación temporal: llega del formulario de Consultas para que las hojas
+    // de evolución coincidan con lo que el usuario ve en pantalla.
+    $groupBy = GETPOST('filter_groupby', 'alpha');
+    if (!in_array($groupBy, array('month', 'week', 'year'), true)) $groupBy = 'month';
+
+    // Descripción legible de los filtros activos (se vuelca en la hoja "Filtros").
+    // Sólo se resuelven los catálogos de los filtros realmente usados.
+    $filterOptionMaps = array();
+    foreach (array('eps', 'medicamento', 'operador_logistico', 'tipo_de_poblacion',
+                   'programa', 'diagnostico', 'ips_primaria', 'estado_del_paciente',
+                   'regimen', 'medico_tratante') as $fkey) {
+        if (isset($cleanFilters[$fkey])) $filterOptionMaps[$fkey] = $engine->getUniqueFieldValues($fkey);
+    }
+    if (isset($cleanFilters['departamento']))    $filterOptionMaps['departamento']    = $engine->getUniqueDepartamentos();
+    if (isset($cleanFilters['ciudad']))          $filterOptionMaps['ciudad']          = $engine->getUniqueCiudades();
+    if (isset($cleanFilters['estado_consulta'])) $filterOptionMaps['estado_consulta'] = $engine->getConsultationStatusLabels();
+    $filterDesc = rcv_describe_filters($cleanFilters, $filterOptionMaps);
+
+    // Las exportaciones de paciente filtran por fecha de creación del paciente
+    // (s.datec); las de consulta, por fecha de la consulta (c.date_start).
+    // Sin este remapeo buildWhere(false) descartaría el rango de fechas.
+    if ($type === 'patients' || $type === 'patients_list') {
+        if (!empty($cleanFilters['date_start'])) {
+            $cleanFilters['patient_date_start'] = $cleanFilters['date_start'];
+            unset($cleanFilters['date_start']);
+        }
+        if (!empty($cleanFilters['date_end'])) {
+            $cleanFilters['patient_date_end'] = $cleanFilters['date_end'];
+            unset($cleanFilters['date_end']);
+        }
+        $engine->setFilters($cleanFilters);
+    }
 
     require_once DOL_DOCUMENT_ROOT.'/includes/phpoffice/phpspreadsheet/src/autoloader.php';
     require_once DOL_DOCUMENT_ROOT.'/includes/Psr/autoloader.php';
@@ -250,11 +290,7 @@ if ($action === 'export' || !empty($exportType)) {
             $ws->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($columns)) . '1')
                ->applyFromArray($styleHeader);
 
-            // Datos
-            $exportFilters = $cleanFilters;
-            if (!empty($exportFilters['date_start'])) { $exportFilters['patient_date_start'] = $exportFilters['date_start']; unset($exportFilters['date_start']); }
-            if (!empty($exportFilters['date_end']))   { $exportFilters['patient_date_end']   = $exportFilters['date_end'];   unset($exportFilters['date_end']); }
-            $engine->setFilters($exportFilters);
+            // Datos (el remapeo de fechas a patient_date_* ya se aplicó arriba)
             $patients = $engine->getPatientsForExport();
             $row = 2;
             foreach ($patients as $p) {
@@ -309,7 +345,7 @@ if ($action === 'export' || !empty($exportType)) {
             $ws2->getStyle('A1:B1')->applyFromArray($styleSubHeader);
             $ws2->getColumnDimension('A')->setWidth(20);
             $ws2->getColumnDimension('B')->setWidth(15);
-            $overtime = $engine->getConsultationsOverTime('month');
+            $overtime = $engine->getConsultationsOverTime($groupBy);
             $r = 2;
             foreach ($overtime as $row) {
                 $ws2->setCellValue('A'.$r, $row['periodo']);
@@ -329,6 +365,105 @@ if ($action === 'export' || !empty($exportType)) {
                 $chart->setTopLeftPosition('D1');
                 $chart->setBottomRightPosition('P20');
                 $ws2->addChart($chart);
+            }
+
+            // Hojas 3..N: mismas distribuciones que muestra la página de Consultas
+            $consDims = array(
+                'eps'             => array('Por EPS',        'Consultas por EPS'),
+                'programa'        => array('Por Programa',   'Consultas por Programa'),
+                'medico_tratante' => array('Por Médico',     'Consultas por Médico Tratante'),
+                'regimen'         => array('Por Régimen',    'Consultas por Régimen'),
+                'ips_primaria'    => array('Por IPS',        'Consultas por IPS Primaria'),
+            );
+            foreach ($consDims as $field => $info) {
+                list($sheetTitle, $chartTitle) = $info;
+                $ctype = ($field === 'regimen') ? 'pie' : 'bar';
+                $addDistSheet($spreadsheet, $sheetTitle, $chartTitle,
+                    $engine->getConsultationsByPatientField($field), $chartTitle, 'Total Consultas', $ctype);
+            }
+            $addDistSheet($spreadsheet, 'Por Departamento', 'Consultas por Departamento',
+                $engine->getConsultationsByDepartamento(), 'Departamento', 'Total Consultas');
+            $addDistSheet($spreadsheet, 'Por Ciudad', 'Consultas por Ciudad',
+                $engine->getConsultationsByCiudad(), 'Ciudad', 'Total Consultas');
+
+            // Hoja de gestores: incluye la columna extra de pacientes únicos
+            $gestores = $engine->getConsultationsByGestor();
+            if (!empty($gestores)) {
+                $distG = array_map(function ($g) {
+                    return array('categoria' => $g['gestor'], 'total' => $g['total']);
+                }, $gestores);
+                $addDistSheet($spreadsheet, 'Por Gestor', 'Consultas por Gestor', $distG, 'Gestor', 'Total Consultas');
+                $wsG = $spreadsheet->getSheetByName('Por Gestor');
+                if ($wsG) {
+                    $wsG->setCellValue('C1', 'Pacientes Atendidos');
+                    $wsG->getStyle('C1')->applyFromArray($styleSubHeader);
+                    $wsG->getColumnDimension('C')->setWidth(20);
+                    $rg = 2;
+                    foreach ($gestores as $g) {
+                        $wsG->setCellValue('C'.$rg, (int) $g['pacientes_unicos']);
+                        $wsG->getStyle('C'.$rg)->applyFromArray($styleNumber);
+                        $rg++;
+                    }
+                }
+            }
+
+            // Hoja tabla cruzada: tipo de atención × período
+            $cross = $engine->getConsultationsCrossTable('tipo_atencion', $groupBy);
+            if (!empty($cross)) {
+                $tiposSet = array(); $periodosSet = array(); $matrix = array();
+                foreach ($cross as $row) {
+                    $tiposSet[$row['categoria']]  = true;
+                    $periodosSet[$row['periodo']] = true;
+                    $matrix[$row['periodo']][$row['categoria']] = (int) $row['total'];
+                }
+                $tiposList   = array_keys($tiposSet);
+                $periodoList = array_keys($periodosSet);
+
+                $wsX = $spreadsheet->createSheet();
+                $wsX->setTitle('Tipo x Periodo');
+                $wsX->setCellValue('A1', 'Período');
+                $wsX->getColumnDimension('A')->setWidth(18);
+                $col = 2;
+                foreach ($tiposList as $tipo) {
+                    $wsX->setCellValueByColumnAndRow($col, 1, $tipo);
+                    $wsX->getColumnDimensionByColumn($col)->setWidth(18);
+                    $col++;
+                }
+                $wsX->setCellValueByColumnAndRow($col, 1, 'Total');
+                $wsX->getColumnDimensionByColumn($col)->setWidth(14);
+                $wsX->getStyle('A1:'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col).'1')
+                    ->applyFromArray($styleHeader);
+
+                $rx = 2;
+                $colTotals = array_fill_keys($tiposList, 0);
+                foreach ($periodoList as $periodo) {
+                    $wsX->setCellValue('A'.$rx, $periodo);
+                    $wsX->getStyle('A'.$rx)->applyFromArray($styleData);
+                    $c = 2; $rowTotal = 0;
+                    foreach ($tiposList as $tipo) {
+                        $val = $matrix[$periodo][$tipo] ?? 0;
+                        $rowTotal += $val;
+                        $colTotals[$tipo] += $val;
+                        $wsX->setCellValueByColumnAndRow($c, $rx, $val);
+                        $wsX->getStyleByColumnAndRow($c, $rx)->applyFromArray($styleNumber);
+                        $c++;
+                    }
+                    $wsX->setCellValueByColumnAndRow($c, $rx, $rowTotal);
+                    $wsX->getStyleByColumnAndRow($c, $rx)->applyFromArray($styleNumber);
+                    $rx++;
+                }
+                // Fila de totales por columna
+                $wsX->setCellValue('A'.$rx, 'Total');
+                $c = 2; $grandTotal = 0;
+                foreach ($tiposList as $tipo) {
+                    $grandTotal += $colTotals[$tipo];
+                    $wsX->setCellValueByColumnAndRow($c, $rx, $colTotals[$tipo]);
+                    $c++;
+                }
+                $wsX->setCellValueByColumnAndRow($c, $rx, $grandTotal);
+                $wsX->getStyle('A'.$rx.':'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c).$rx)
+                    ->applyFromArray($styleSubHeader);
+                $wsX->freezePane('B2');
             }
             break;
 
@@ -355,6 +490,36 @@ if ($action === 'export' || !empty($exportType)) {
             break;
     }
 
+    // ── Hoja "Filtros": deja constancia del alcance de los datos exportados ──
+    $wsF = $spreadsheet->createSheet();
+    $wsF->setTitle('Filtros');
+    $wsF->setCellValue('A1', 'Filtro');
+    $wsF->setCellValue('B1', 'Valor');
+    $wsF->getStyle('A1:B1')->applyFromArray($styleSubHeader);
+    $wsF->getColumnDimension('A')->setWidth(26);
+    $wsF->getColumnDimension('B')->setWidth(80);
+    $wsF->getStyle('B')->getAlignment()->setWrapText(true);
+
+    $rf = 2;
+    if (empty($filterDesc)) {
+        $wsF->setCellValue('A'.$rf, 'Ninguno');
+        $wsF->setCellValue('B'.$rf, 'Se exportaron todos los datos disponibles');
+        $wsF->getStyle('A'.$rf.':B'.$rf)->applyFromArray($styleData);
+        $rf++;
+    } else {
+        foreach ($filterDesc as $fd) {
+            $wsF->setCellValue('A'.$rf, $fd[0]);
+            $wsF->setCellValue('B'.$rf, $fd[1]);
+            $wsF->getStyle('A'.$rf.':B'.$rf)->applyFromArray($styleData);
+            $rf++;
+        }
+    }
+    $rf++;
+    $wsF->setCellValue('A'.$rf, 'Generado');
+    $wsF->setCellValue('B'.$rf, dol_print_date(dol_now(), 'dayhourrfc'));
+    $wsF->setCellValue('A'.($rf + 1), 'Usuario');
+    $wsF->setCellValue('B'.($rf + 1), $user->getFullName($langs));
+
     // ── Enviar XLSX ──────────────────────────────────────────────────────
     $spreadsheet->setActiveSheetIndex(0);
     $writer = new XlsxWriter($spreadsheet);
@@ -372,13 +537,20 @@ if ($action === 'export' || !empty($exportType)) {
 }
 
 // ─── Página de selección de exportación ───────────────────────────────────
+$optTiposAtencion = $engine->getUniqueTiposAtencion();
+$optEstadoConsulta = $engine->getConsultationStatusLabels();
 $optMedicamentos  = $engine->getUniqueFieldValues('medicamento');
 $optEps           = $engine->getUniqueFieldValues('eps');
 $optOperadores    = $engine->getUniqueFieldValues('operador_logistico');
 $optTipoPob       = $engine->getUniqueFieldValues('tipo_de_poblacion');
 $optProgramas     = $engine->getUniqueFieldValues('programa');
+$optDiagnosticos  = $engine->getUniqueFieldValues('diagnostico');
 $optEstados       = $engine->getUniqueFieldValues('estado_del_paciente');
-$optTiposAtencion = $engine->getUniqueTiposAtencion();
+$optIps           = $engine->getUniqueFieldValues('ips_primaria');
+$optRegimenes     = $engine->getUniqueFieldValues('regimen');
+$optMedicos       = $engine->getUniqueFieldValues('medico_tratante');
+$optDepartamentos = $engine->getUniqueDepartamentos();
+$optCiudades      = $engine->getUniqueCiudades();
 
 llxHeader('', $langs->trans('Exportar'), '', '', 0, 0, array(), array('/rcv_analytics/css/analytics.css'));
 
@@ -396,21 +568,25 @@ print '<div class="rcv-filter-item"><label>'.$langs->trans('FechaHasta').'</labe
     .$form->selectDate($_date_end_ts ?: -1, 'filter_date_end', 0, 0, 1, '', 1, 0).'</div>';
 print '</div>';
 print '<div class="rcv-filter-grid">';
-rcv_print_filter_select('filter_eps',                $langs->trans('EPS'),               $optEps,          $filters['eps'] ?? '');
-rcv_print_filter_select('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos, $filters['medicamento'] ?? '');
-rcv_print_filter_select('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,   $filters['operador_logistico'] ?? '');
-rcv_print_filter_select('filter_tipo_de_poblacion',  $langs->trans('TipoPoblacion'),     $optTipoPob,      $filters['tipo_de_poblacion'] ?? '');
-print '<div class="rcv-filter-item"><label>'.$langs->trans('TipoAtencion').'</label>';
-print '<select name="filter_tipo_atencion" class="flat">';
-print '<option value="">-- '.$langs->trans('Todos').' --</option>';
-foreach ($optTiposAtencion as $opt => $lbl) {
-    $sel = (($filters['tipo_atencion'] ?? '') === (string)$opt) ? ' selected' : '';
-    print '<option value="'.dol_escape_htmltag($opt).'"'.$sel.'>'.dol_escape_htmltag($lbl).'</option>';
-}
-print '</select></div>';
-rcv_print_filter_select('filter_programa',           $langs->trans('Programa'),          $optProgramas,    $filters['programa'] ?? '');
-rcv_print_filter_select('filter_estado_del_paciente',$langs->trans('EstadoPaciente'),    $optEstados,      $filters['estado_del_paciente'] ?? '');
-print '</div></div>';
+rcv_print_filter_multisel('filter_tipo_atencion',      $langs->trans('TipoAtencion'),      $optTiposAtencion, $filters['tipo_atencion'] ?? array());
+rcv_print_filter_multisel('filter_estado_consulta',    $langs->trans('EstadoConsulta'),    $optEstadoConsulta,$filters['estado_consulta'] ?? array());
+rcv_print_filter_multisel('filter_eps',                $langs->trans('EPS'),               $optEps,           $filters['eps'] ?? array());
+rcv_print_filter_multisel('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos,  $filters['medicamento'] ?? array());
+rcv_print_filter_multisel('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,    $filters['operador_logistico'] ?? array());
+rcv_print_filter_multisel('filter_tipo_de_poblacion',  $langs->trans('TipoPoblacion'),     $optTipoPob,       $filters['tipo_de_poblacion'] ?? array());
+rcv_print_filter_multisel('filter_programa',           $langs->trans('Programa'),          $optProgramas,     $filters['programa'] ?? array());
+rcv_print_filter_multisel('filter_diagnostico',        $langs->trans('Diagnostico'),       $optDiagnosticos,  $filters['diagnostico'] ?? array());
+rcv_print_filter_multisel('filter_estado_del_paciente',$langs->trans('EstadoPaciente'),    $optEstados,       $filters['estado_del_paciente'] ?? array());
+rcv_print_filter_multisel('filter_ips_primaria',       $langs->trans('IPSPrimaria'),       $optIps,           $filters['ips_primaria'] ?? array());
+rcv_print_filter_multisel('filter_regimen',            $langs->trans('Regimen'),           $optRegimenes,     $filters['regimen'] ?? array());
+rcv_print_filter_multisel('filter_medico_tratante',    $langs->trans('MedicoTratante'),    $optMedicos,       $filters['medico_tratante'] ?? array());
+rcv_print_filter_multisel('filter_departamento',       $langs->trans('Departamento'),      $optDepartamentos, $filters['departamento'] ?? array());
+rcv_print_filter_multisel('filter_ciudad',             $langs->trans('Ciudad'),            $optCiudades,      $filters['ciudad'] ?? array());
+print '</div>';
+print '<div class="rcv-filter-actions">';
+print '<a class="butActionDelete" href="'.dol_buildpath('/rcv_analytics/export.php', 1).'">'.$langs->trans('LimpiarFiltros').'</a>';
+print '</div>';
+print '</div>';
 
 print '<div style="margin:16px 0 8px">';
 print '<h4 style="margin:0 0 8px">'.$langs->trans('TipoExportacion').'</h4>';
@@ -422,9 +598,10 @@ $exports = array(
     'consultations' => array('icon' => '📋', 'label' => 'Consultas',  'desc' => '2 hojas: Distribución por tipo + Evolución temporal'),
     'adherencia'    => array('icon' => '📈', 'label' => 'Adherencia', 'desc' => '1 hoja: Cumplimiento + Pacientes únicos'),
 );
+$selectedType = array_key_exists($exportType, $exports) ? $exportType : 'patients_list';
 foreach ($exports as $val => $info) {
     print '<label style="display:flex;align-items:flex-start;gap:8px;padding:12px 16px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;min-width:220px">';
-    print '<input type="radio" name="type" value="'.dol_escape_htmltag($val).'" style="margin-top:2px">';
+    print '<input type="radio" name="type" value="'.dol_escape_htmltag($val).'"'.($val === $selectedType ? ' checked' : '').' style="margin-top:2px">';
     print '<span><strong>'.$info['icon'].' '.$info['label'].'</strong><br><small style="color:#6b7280">'.$info['desc'].'</small></span>';
     print '</label>';
 }
@@ -435,174 +612,7 @@ print '<input type="submit" class="butAction" value="⬇ '.$langs->trans('Descar
 print ' <a class="butActionDelete" href="'.dol_buildpath('/rcv_analytics/index.php', 1).'">'.$langs->trans('Volver').'</a>';
 print '</div>';
 print '</form>';
-
-print dol_get_fiche_end();
-llxFooter();
-$db->close();
-
-require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
-require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
-dol_include_once('/rcv_analytics/class/rcvanalyticsengine.class.php');
-dol_include_once('/rcv_analytics/lib/rcv_analytics.lib.php');
-
-$langs->loadLangs(array("companies", "rcv_analytics@rcv_analytics"));
-
-if (!$user->admin && !$user->hasRight('rcv_analytics', 'export')) accessforbidden();
-
-$form   = new Form($db);
-$engine = new RcvAnalyticsEngine($db);
-
-$action              = GETPOST('action', 'aZ09');
-$exportType          = GETPOST('type', 'alpha');
-$button_removefilter = GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter', 'alpha');
-
-// Re-use timestamps already computed in the first block (same request scope)
-$filters = array();
-if (!$button_removefilter) {
-    $filters['date_start']         = $_date_start_ts ? dol_print_date($_date_start_ts, 'dayrfc') : '';
-    $filters['date_end']           = $_date_end_ts   ? dol_print_date($_date_end_ts,   'dayrfc') : '';
-    $filters['medicamento']        = GETPOST('filter_medicamento', 'alpha');
-    $filters['eps']                = GETPOST('filter_eps', 'alpha');
-    $filters['operador_logistico'] = GETPOST('filter_operador_logistico', 'alpha');
-    $filters['tipo_de_poblacion']  = GETPOST('filter_tipo_de_poblacion', 'alpha');
-    $filters['tipo_atencion']      = GETPOST('filter_tipo_atencion', 'alpha');
-    $filters['programa']           = GETPOST('filter_programa', 'alpha');
-    $filters['diagnostico']        = GETPOST('filter_diagnostico', 'alpha');
-    $filters['ips_primaria']       = GETPOST('filter_ips_primaria', 'alpha');
-    $filters['estado_del_paciente']= GETPOST('filter_estado_del_paciente', 'alpha');
-}
-
-$cleanFilters = array_filter($filters, function ($v) { return $v !== '' && $v !== null; });
-$engine->setFilters($cleanFilters);
-
-// ─── Exportar CSV directo ──────────────────────────────────────────────────
-if ($action === 'export' || !empty($exportType)) {
-    $type = $exportType ?: GETPOST('export_type', 'alpha');
-
-    switch ($type) {
-        case 'patients':
-            // Exportación anonimizada: estadísticas agregadas por cada dimensión clave.
-            // No se exportan datos individuales de pacientes.
-            $filename = 'pacientes_estadisticas_'.dol_print_date(dol_now(), 'dayrfc').'.csv';
-            $dimensions = array(
-                'eps'                => 'EPS',
-                'medicamento'        => 'Medicamento',
-                'operador_logistico' => 'Operador Logístico',
-                'estado_del_paciente'=> 'Estado Paciente',
-                'programa'           => 'Programa',
-                'diagnostico'        => 'Diagnóstico',
-                'tipo_de_poblacion'  => 'Tipo de Población',
-                'regimen'            => 'Régimen',
-                'tipo_de_afiliacion' => 'Tipo de Afiliación',
-            );
-            $headers  = array('Dimensión', 'Categoría', 'N° Pacientes');
-            $dataRows = array();
-            foreach ($dimensions as $field => $dimLabel) {
-                $dist = $engine->getPatientDistributionBy($field);
-                foreach ($dist as $r) {
-                    $dataRows[] = array($dimLabel, $r['categoria'], (int)$r['total']);
-                }
-                if (!empty($dist)) {
-                    $dataRows[] = array('', '', ''); // separador visual
-                }
-            }
-            break;
-
-        case 'adherencia':
-            $engine->setFilters(array_merge($cleanFilters, array('tipo_atencion' => 'adherencia')));
-            $rows = $engine->getAdherenciaDistribution();
-            $filename = 'adherencia_'.dol_print_date(dol_now(), 'dayrfc').'.csv';
-            $headers  = array('Cumplimiento', 'Total Consultas', 'Pacientes Únicos');
-            $dataRows = array_map(function ($r) {
-                return array($r['cumplimiento'], $r['total'], $r['pacientes_unicos']);
-            }, $rows);
-            break;
-
-        case 'consultations':
-        default:
-            $rows = $engine->getConsultationsByTipoAtencion();
-            $filename = 'consultas_por_tipo_'.dol_print_date(dol_now(), 'dayrfc').'.csv';
-            $headers  = array('Tipo de Atención', 'Total Consultas');
-            $dataRows = array_map(function ($r) {
-                return array($r['tipo'], $r['total']);
-            }, $rows);
-            break;
-    }
-
-    // Enviar CSV
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="'.preg_replace('/[^a-z0-9_.-]/i', '_', $filename).'"');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-
-    $out = fopen('php://output', 'w');
-    // BOM UTF-8 para compatibilidad con Excel
-    fputs($out, "\xEF\xBB\xBF");
-    fputcsv($out, $headers, ';');
-    foreach ($dataRows as $row) {
-        fputcsv($out, $row, ';');
-    }
-    fclose($out);
-    exit;
-}
-
-// ─── Página de selección de exportación ───────────────────────────────────
-$optMedicamentos = $engine->getUniqueFieldValues('medicamento');
-$optEps          = $engine->getUniqueFieldValues('eps');
-$optOperadores   = $engine->getUniqueFieldValues('operador_logistico');
-$optTipoPob      = $engine->getUniqueFieldValues('tipo_de_poblacion');
-$optProgramas    = $engine->getUniqueFieldValues('programa');
-$optEstados      = $engine->getUniqueFieldValues('estado_del_paciente');
-$optTiposAtencion = $engine->getUniqueTiposAtencion();
-
-llxHeader('', $langs->trans('Exportar'), '', '', 0, 0, array(), array('/rcv_analytics/css/analytics.css'));
-
-$head = rcv_analytics_prepare_head();
-print dol_get_fiche_head($head, 'export', $langs->trans('Analiticas'), -1, 'export');
-rcv_print_inline_styles();
-
-print '<form method="GET" action="'.dol_buildpath('/rcv_analytics/export.php', 1).'">';
-print '<input type="hidden" name="action" value="export">';
-print '<div class="rcv-filters">';
-print '<div class="rcv-filter-dates">';
-print '<div class="rcv-filter-item"><label>'.$langs->trans('FechaDesde').'</label>'
-    .$form->selectDate($_date_start_ts ?: -1, 'filter_date_start', 0, 0, 1, '', 1, 0).'</div>';
-print '<div class="rcv-filter-item"><label>'.$langs->trans('FechaHasta').'</label>'
-    .$form->selectDate($_date_end_ts ?: -1, 'filter_date_end', 0, 0, 1, '', 1, 0).'</div>';
-print '</div>';
-print '<div class="rcv-filter-grid">';
-rcv_print_filter_select('filter_eps',                $langs->trans('EPS'),               $optEps,          $filters['eps'] ?? '');
-rcv_print_filter_select('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos, $filters['medicamento'] ?? '');
-rcv_print_filter_select('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,   $filters['operador_logistico'] ?? '');
-rcv_print_filter_select('filter_tipo_de_poblacion',  $langs->trans('TipoPoblacion'),     $optTipoPob,      $filters['tipo_de_poblacion'] ?? '');
-print '<div class="rcv-filter-item"><label>'.$langs->trans('TipoAtencion').'</label>';
-print '<select name="filter_tipo_atencion" class="flat">';
-print '<option value="">-- '.$langs->trans('Todos').' --</option>';
-foreach ($optTiposAtencion as $opt) {
-    $sel = (($filters['tipo_atencion'] ?? '') === $opt) ? ' selected' : '';
-    print '<option value="'.dol_escape_htmltag($opt).'"'.$sel.'>'.dol_escape_htmltag($opt).'</option>';
-}
-print '</select></div>';
-rcv_print_filter_select('filter_programa',           $langs->trans('Programa'),          $optProgramas,    $filters['programa'] ?? '');
-rcv_print_filter_select('filter_estado_del_paciente',$langs->trans('EstadoPaciente'),    $optEstados,      $filters['estado_del_paciente'] ?? '');
-print '</div></div>';
-
-// Tipo de exportación
-print '<div style="margin:16px 0">';
-print '<h4>'.$langs->trans('TipoExportacion').'</h4>';
-print '<select name="type" class="flat minwidth200">';
-print '<option value="patients">'.$langs->trans('ExportarPacientes').'</option>';
-print '<option value="consultations">'.$langs->trans('ExportarConsultas').'</option>';
-print '<option value="adherencia">'.$langs->trans('ExportarAdherencia').'</option>';
-print '</select>';
-print '</div>';
-
-print '<div>';
-print '<input type="submit" class="butAction" value="'.$langs->trans('DescargarCSV').'">';
-print ' <a class="butActionRefused" href="'.dol_buildpath('/rcv_analytics/index.php', 1).'">'.$langs->trans('Volver').'</a>';
-print '</div>';
-print '</form>';
+rcv_print_multisel_js();
 
 print dol_get_fiche_end();
 llxFooter();

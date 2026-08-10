@@ -23,6 +23,7 @@ Filtrar=Filter
 LimpiarFiltros=Clear filters
 AgruparPor=Group by
 Todos=All
+Buscar=Search
 
 # Field labels
 Medicamento=Medication
@@ -34,6 +35,7 @@ Diagnostico=Diagnosis
 IPSPrimaria=Primary IPS
 EstadoPaciente=Patient status
 TipoAtencion=Care type
+EstadoConsulta=Consultation status
 MedicoTratante=Treating physician
 NombrePaciente=Name
 FechaCreacion=Creation date
@@ -42,6 +44,8 @@ TipoDocumento=ID type
 TotalConsultas=Total consultations
 UltimaConsulta=Last consultation
 Regimen=Regimen
+Departamento=Department
+Ciudad=City
 Concentracion=Concentration
 SedeOperador=Operator branch
 TipoAfiliacion=Affiliation type
@@ -75,6 +79,9 @@ VerTablasConsultas=View consultations table
 AdherenciaDetallada=Adherence detail
 ExportarCSV=Export CSV
 ExportarPDF=Export PDF
+ExportarExcel=Export Excel
+ExportarExcelListado=Excel: list
+ExportarExcelEstadisticas=Excel: statistics
 Volver=Back to dashboard
 
 # Export
@@ -83,6 +90,7 @@ ExportarPacientes=Patients (all data)
 ExportarConsultas=Consultations by care type
 ExportarAdherencia=Adherence distribution
 DescargarCSV=Download CSV
+DescargarXLSX=Download XLSX
 
 # Pagination
 Total=Total

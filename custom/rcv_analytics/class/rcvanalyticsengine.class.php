@@ -241,6 +241,17 @@ class RcvAnalyticsEngine
                     $where .= ' AND c.tipo_atencion = \''.$this->db->escape($val).'\'';
                 }
             }
+            // Estado de la consulta: 0=En progreso, 1=Completada, 2=Cancelada.
+            // Ojo: 0 es un valor válido, por eso no se puede usar empty() aquí.
+            if (isset($this->filters['estado_consulta'])) {
+                $ids = array();
+                foreach ((array) $this->filters['estado_consulta'] as $v) {
+                    if ((string) $v !== '' && is_numeric($v)) $ids[] = (int) $v;
+                }
+                if (!empty($ids)) {
+                    $where .= ' AND c.status IN ('.implode(',', array_unique($ids)).')';
+                }
+            }
             if (isset($this->filters['cumplimiento']) && $this->filters['cumplimiento'] !== '') {
                 $where .= ' AND c.cumplimiento = \''.$this->db->escape($this->filters['cumplimiento']).'\'';
             }
@@ -1126,6 +1137,22 @@ class RcvAnalyticsEngine
             $result[$r['val']] = $r['val'];
         }
         return $result;
+    }
+
+    /**
+     * Estados posibles de una consulta extendida.
+     * Debe mantenerse alineado con ExtConsultation::getStatusArray()
+     * (llx_cabinetmed_extcons.status).
+     *
+     * @return array [int => label]
+     */
+    public function getConsultationStatusLabels()
+    {
+        return array(
+            0 => 'En progreso',
+            1 => 'Completada',
+            2 => 'Cancelada',
+        );
     }
 
     // -------------------------------------------------------------------------

@@ -32,6 +32,7 @@ if (!$button_removefilter) {
     $filters['date_start']         = $_date_start_ts ? dol_print_date($_date_start_ts, 'dayrfc') : '';
     $filters['date_end']           = $_date_end_ts   ? dol_print_date($_date_end_ts,   'dayrfc') : '';
     $filters['tipo_atencion']      = GETPOST('filter_tipo_atencion', 'array');
+    $filters['estado_consulta']    = GETPOST('filter_estado_consulta', 'array');
     $filters['eps']                = GETPOST('filter_eps', 'array');
     $filters['medicamento']        = GETPOST('filter_medicamento', 'array');
     $filters['operador_logistico'] = GETPOST('filter_operador_logistico', 'array');
@@ -68,6 +69,7 @@ $consByCiudad   = $engine->getConsultationsByCiudad();
 $consByGestor   = $engine->getConsultationsByGestor();
 
 $optTiposAtencion = $engine->getUniqueTiposAtencion();
+$optEstadoConsulta = $engine->getConsultationStatusLabels();
 $optMedicamentos  = $engine->getUniqueFieldValues('medicamento');
 $optEps           = $engine->getUniqueFieldValues('eps');
 $optOperadores    = $engine->getUniqueFieldValues('operador_logistico');
@@ -81,7 +83,7 @@ $optMedicos       = $engine->getUniqueFieldValues('medico_tratante');
 $optDepartamentos = $engine->getUniqueDepartamentos();
 $optCiudades      = $engine->getUniqueCiudades();
 
-llxHeader('', $langs->trans('ConsultasAnaliticas'), '', '', 0, 0, array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js?v=2'), array('/rcv_analytics/css/analytics.css'));
+llxHeader('', $langs->trans('ConsultasAnaliticas'), '', '', 0, 0, array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js?v=3'), array('/rcv_analytics/css/analytics.css'));
 
 // CDN libs for PDF export (jsPDF + html2canvas)
 print '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>';
@@ -110,6 +112,7 @@ print '</div>';
 rcv_print_date_presets();
 print '<div class="rcv-filter-grid">';
 rcv_print_filter_multisel('filter_tipo_atencion',      $langs->trans('TipoAtencion'),      $optTiposAtencion, $filters['tipo_atencion'] ?? array());
+rcv_print_filter_multisel('filter_estado_consulta',    $langs->trans('EstadoConsulta'),    $optEstadoConsulta,$filters['estado_consulta'] ?? array());
 rcv_print_filter_multisel('filter_eps',                $langs->trans('EPS'),               $optEps,           $filters['eps'] ?? array());
 rcv_print_filter_multisel('filter_medicamento',        $langs->trans('Medicamento'),       $optMedicamentos,  $filters['medicamento'] ?? array());
 rcv_print_filter_multisel('filter_operador_logistico', $langs->trans('OperadorLogistico'), $optOperadores,    $filters['operador_logistico'] ?? array());
@@ -126,9 +129,27 @@ print '</div>';
 print '<div class="rcv-filter-actions">';
 print '<input type="submit" class="butAction" name="button_search" value="'.$langs->trans('Filtrar').'">';
 print '<input type="submit" class="butActionDelete" name="button_removefilter" value="'.$langs->trans('LimpiarFiltros').'">';
-print '<button type="button" class="butAction rcv-btn-export-pdf" onclick="rcvExportChartsPDF(\'Anal\u00edticas de Consultas\', \'consultas_analiticas\')" title="Exportar gráficas a PDF"><span class="rcv-pdf-icon">&#128196;</span> '.$langs->trans('ExportarPDF').'</button>';
+// Reenvía este mismo formulario a export.php, así el XLSX hereda los filtros activos.
+rcv_print_export_xlsx_button('consultations', $langs->trans('ExportarExcel'), 'Exportar a Excel los datos de esta página');
+print '<button type="button" class="butAction rcv-btn-export-pdf" onclick="rcvExportChartsPDF(\'Anal\u00edticas de Consultas\', \'consultas_analiticas\', rcvActiveFilters)" title="Exportar gráficas a PDF"><span class="rcv-pdf-icon">&#128196;</span> '.$langs->trans('ExportarPDF').'</button>';
 print '</div></div></form>';
 rcv_print_multisel_js();
+rcv_print_active_filters_js(rcv_describe_filters($filters, array(
+    'tipo_atencion'       => $optTiposAtencion,
+    'estado_consulta'     => $optEstadoConsulta,
+    'eps'                 => $optEps,
+    'medicamento'         => $optMedicamentos,
+    'operador_logistico'  => $optOperadores,
+    'tipo_de_poblacion'   => $optTipoPob,
+    'programa'            => $optProgramas,
+    'diagnostico'         => $optDiagnosticos,
+    'ips_primaria'        => $optIps,
+    'estado_del_paciente' => $optEstados,
+    'regimen'             => $optRegimenes,
+    'medico_tratante'     => $optMedicos,
+    'departamento'        => $optDepartamentos,
+    'ciudad'              => $optCiudades,
+)));
 
 // ─── KPIs ──────────────────────────────────────────────────────────────────
 print '<div class="rcv-kpi-row">';

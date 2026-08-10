@@ -23,6 +23,7 @@ Filtrar=Filtrar
 LimpiarFiltros=Limpiar filtros
 AgruparPor=Agrupar por
 Todos=Todos
+Buscar=Buscar
 
 # Field labels
 Medicamento=Medicamento
@@ -34,6 +35,7 @@ Diagnostico=Diagnóstico
 IPSPrimaria=IPS primaria
 EstadoPaciente=Estado del paciente
 TipoAtencion=Tipo de atención
+EstadoConsulta=Estado de la consulta
 MedicoTratante=Médico tratante
 NombrePaciente=Nombre
 FechaCreacion=Fecha creación
@@ -42,6 +44,8 @@ TipoDocumento=Tipo doc.
 TotalConsultas=Total consultas
 UltimaConsulta=Última consulta
 Regimen=Régimen
+Departamento=Departamento
+Ciudad=Ciudad
 Concentracion=Concentración
 SedeOperador=Sede operador
 TipoAfiliacion=Tipo afiliación
@@ -77,6 +81,9 @@ VerTablasConsultas=Ver tabla de consultas
 AdherenciaDetallada=Adherencia detallada
 ExportarCSV=Exportar CSV
 ExportarPDF=Exportar PDF
+ExportarExcel=Exportar Excel
+ExportarExcelListado=Excel: listado
+ExportarExcelEstadisticas=Excel: estadísticas
 Volver=Volver al dashboard
 
 # Export
@@ -85,6 +92,7 @@ ExportarPacientes=Pacientes (todos los datos)
 ExportarConsultas=Consultas por tipo de atención
 ExportarAdherencia=Distribución de adherencia
 DescargarCSV=Descargar CSV
+DescargarXLSX=Descargar XLSX
 
 # Pagination
 Total=Total
