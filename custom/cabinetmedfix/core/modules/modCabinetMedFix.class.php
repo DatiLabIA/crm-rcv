@@ -95,7 +95,8 @@ class modCabinetMedFix extends DolibarrModules
 				'/cabinetmedfix/js/fix-patient-urls.js?v='.time(),
 				'/cabinetmedfix/js/fix-patient-responsive.js?v='.time(),
 				'/cabinetmedfix/js/fix-diagnostico-select2.js?v='.time(),
-				'/cabinetmedfix/js/document-tags.js?v='.time()
+				'/cabinetmedfix/js/document-tags.js?v='.time(),
+				'/cabinetmedfix/js/check-document-number.js?v='.time()
 			),
 			'hooks' => array(
 				'thirdpartycard',

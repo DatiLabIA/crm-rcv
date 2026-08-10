@@ -1,0 +1,33 @@
+# Copyright (C) 2026 DatiLab
+# Language file - es_ES
+
+# Module
+Module500200Name = ThirdpartyExportLabels
+Module500200Desc = Exportar terceros con resolución de etiquetas en extrafields
+
+# Admin
+ThirdpartyExportLabelsSetup = Configuración de Export Labels
+ThirdpartyExportLabelsAbout = Acerca de ThirdpartyExportLabels
+
+# Permissions
+Permission500201 = Leer mapeos de etiquetas
+Permission500202 = Configurar mapeos de etiquetas
+Permission500203 = Ejecutar exportaciones
+
+# Interface
+SelectTable = Seleccionar tabla
+SelectKeyField = Seleccionar campo ID
+SelectLabelField = Seleccionar campo etiqueta
+SaveMapping = Guardar mapeo
+DeleteMapping = Eliminar mapeo
+MappingActive = Activo
+MappingNotConfigured = Sin configurar
+ExportThirdparties = Exportar terceros
+ExportCSV = Exportar CSV
+Preview = Vista previa
+NoExtrafields = No hay extrafields definidos para terceros
+AllFieldsRequired = Todos los campos son obligatorios
+MappingSaved = Mapeo guardado correctamente
+MappingDeleted = Mapeo eliminado
+ErrorSaving = Error al guardar
+LoadingFields = Cargando campos...

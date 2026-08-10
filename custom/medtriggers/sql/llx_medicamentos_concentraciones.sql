@@ -1,0 +1,8 @@
+-- Copyright (C) 2024-2026 DatiLab
+--
+-- MedTriggers v2.1.0 ya NO crea tablas propias.
+-- Usa las tablas del módulo Gestion:
+--   - llx_gestion_medicamento      (maestro de medicamentos)
+--   - llx_gestion_medicamento_det  (concentraciones por medicamento)
+--
+-- Este archivo se mantiene vacío por compatibilidad con la estructura del módulo.

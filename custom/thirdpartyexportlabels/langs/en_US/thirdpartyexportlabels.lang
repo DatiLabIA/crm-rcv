@@ -1,0 +1,33 @@
+# Copyright (C) 2026 DatiLab
+# Language file - en_US
+
+# Module
+Module500200Name = ThirdpartyExportLabels
+Module500200Desc = Export third parties with extrafield label resolution
+
+# Admin
+ThirdpartyExportLabelsSetup = Export Labels Configuration
+ThirdpartyExportLabelsAbout = About ThirdpartyExportLabels
+
+# Permissions
+Permission500201 = Read label mappings
+Permission500202 = Configure label mappings
+Permission500203 = Execute exports
+
+# Interface
+SelectTable = Select table
+SelectKeyField = Select ID field
+SelectLabelField = Select label field
+SaveMapping = Save mapping
+DeleteMapping = Delete mapping
+MappingActive = Active
+MappingNotConfigured = Not configured
+ExportThirdparties = Export third parties
+ExportCSV = Export CSV
+Preview = Preview
+NoExtrafields = No extrafields defined for third parties
+AllFieldsRequired = All fields are required
+MappingSaved = Mapping saved successfully
+MappingDeleted = Mapping deleted
+ErrorSaving = Error saving
+LoadingFields = Loading fields...

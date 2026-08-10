@@ -74,6 +74,7 @@ VerTablasPacientes=View patients table
 VerTablasConsultas=View consultations table
 AdherenciaDetallada=Adherence detail
 ExportarCSV=Export CSV
+ExportarPDF=Export PDF
 Volver=Back to dashboard
 
 # Export

@@ -81,7 +81,11 @@ $optMedicos       = $engine->getUniqueFieldValues('medico_tratante');
 $optDepartamentos = $engine->getUniqueDepartamentos();
 $optCiudades      = $engine->getUniqueCiudades();
 
-llxHeader('', $langs->trans('ConsultasAnaliticas'), '', '', 0, 0, array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js'), array('/rcv_analytics/css/analytics.css'));
+llxHeader('', $langs->trans('ConsultasAnaliticas'), '', '', 0, 0, array('/includes/nnnick/chartjs/dist/chart.min.js', '/rcv_analytics/js/charts.min.js?v=2'), array('/rcv_analytics/css/analytics.css'));
+
+// CDN libs for PDF export (jsPDF + html2canvas)
+print '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>';
+print '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>';
 
 $head = rcv_analytics_prepare_head();
 print dol_get_fiche_head($head, 'consultations', $langs->trans('Analiticas'), -1, 'action');
@@ -122,6 +126,7 @@ print '</div>';
 print '<div class="rcv-filter-actions">';
 print '<input type="submit" class="butAction" name="button_search" value="'.$langs->trans('Filtrar').'">';
 print '<input type="submit" class="butActionDelete" name="button_removefilter" value="'.$langs->trans('LimpiarFiltros').'">';
+print '<button type="button" class="butAction rcv-btn-export-pdf" onclick="rcvExportChartsPDF(\'Anal\u00edticas de Consultas\', \'consultas_analiticas\')" title="Exportar gráficas a PDF"><span class="rcv-pdf-icon">&#128196;</span> '.$langs->trans('ExportarPDF').'</button>';
 print '</div></div></form>';
 rcv_print_multisel_js();
 

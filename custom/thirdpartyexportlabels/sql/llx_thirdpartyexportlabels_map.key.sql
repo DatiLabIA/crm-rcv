@@ -1,0 +1,5 @@
+-- Copyright (C) 2026 DatiLab <info@datilab.com>
+--
+-- ThirdpartyExportLabels - Keys (already defined in main SQL via UNIQUE KEY)
+--
+-- No additional keys needed

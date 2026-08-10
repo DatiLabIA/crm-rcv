@@ -1,0 +1,660 @@
+/**
+ * calendar.css
+ * Estilos personalizados del módulo cabinetmed_calendar.
+ * Diseñado para integrarse con el tema por defecto de Dolibarr sin sobrescribir estilos globales.
+ *
+ * Copyright (C) 2024 DatiLab - Módulo Calendario de Consultas CabinetMed
+ */
+
+/* ============================================================
+   Contenedor principal
+   ============================================================ */
+.cabinetmed-calendar-wrap {
+    padding: 0 4px;
+}
+
+#calendarContainer {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    padding: 16px;
+    margin-bottom: 16px;
+    min-height: 500px;
+}
+
+/* ============================================================
+   Panel de filtros
+   ============================================================ */
+.calendar-filters-bar {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+}
+
+.calendar-filters-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.filter-label {
+    font-size: .85em;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.filter-group-actions {
+    margin-left: auto;
+}
+
+/* Multiselect dropdown */
+.filter-multiselect {
+    position: relative;
+    display: inline-block;
+}
+
+.filter-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: .85em;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    cursor: pointer;
+    color: #495057;
+    transition: border-color .15s, box-shadow .15s;
+    min-width: 140px;
+}
+
+.filter-toggle-btn:hover {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, .15);
+}
+
+.filter-selected-text {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filter-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1050;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+    min-width: 210px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+.filter-dropdown.open {
+    display: block;
+}
+
+.filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: .85em;
+    color: #343a40;
+    transition: background .1s;
+    user-select: none;
+}
+
+.filter-option:hover {
+    background: #f0f4ff;
+}
+
+.filter-option input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: #0d6efd;
+    flex-shrink: 0;
+}
+
+.filter-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, .15);
+}
+
+.filter-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #6c757d;
+    color: #fff;
+    font-size: .7em;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* Badges de estado */
+.status-badge {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-badge.status-0 {
+    background: #FFC107;
+}
+
+.status-badge.status-1 {
+    background: #4CAF50;
+}
+
+.status-badge.status-2 {
+    background: #F44336;
+}
+
+/* ============================================================
+   Tarjeta de evento personalizada
+   ============================================================ */
+
+/* FullCalendar: resetear estilos del wrapper para que nuestra
+   tarjeta controle completamente la apariencia */
+.cal-event-card .fc-event-main {
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.fc-event.cal-event-card {
+    background: transparent !important;
+    border: 1px solid rgba(0, 0, 0, .12) !important;
+    border-radius: 5px !important;
+    /* [FIX] overflow: visible para no recortar el resize handle de FullCalendar.
+       Antes era "overflow: hidden" lo que causaba que el .fc-event-resizer
+       quedara clippeado e inaccesible, especialmente en eventos cortos (30min). */
+    overflow: visible;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+    transition: box-shadow .15s, transform .1s;
+}
+
+.fc-event.cal-event-card:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .18) !important;
+    transform: translateY(-1px);
+    z-index: 5;
+}
+
+/* [FIX] Asegurar que el resize handle de FullCalendar siempre sea accesible
+   por encima del contenido personalizado (.cal-card-wrap, .cal-card-status-strip) */
+.fc-event.cal-event-card > .fc-event-resizer {
+    z-index: 5 !important;
+    pointer-events: auto !important;
+}
+
+/* Contenedor principal de la tarjeta */
+.cal-card-wrap {
+    display: flex;
+    flex-direction: column;
+    min-height: 52px;
+    position: relative;
+    padding-right: 10px;
+    /* espacio para la franja derecha */
+    overflow: hidden; /* [FIX] Mover overflow:hidden aquí (del .fc-event al .cal-card-wrap)
+                         para que el contenido visual siga recortado, pero sin afectar
+                         al resize handle que está fuera de .fc-event-main */
+}
+
+/* ── Franja superior: color del TIPO DE ATENCIÓN ── */
+.cal-card-top-strip {
+    height: 20px;
+    min-height: 20px;
+    font-size: .68em;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .95);
+    padding: 0 22px 0 6px;
+    /* deja espacio a la derecha para la franja de estado */
+    line-height: 20px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    letter-spacing: .02em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+}
+
+/* ── Cuerpo: fondo del GESTOR ── */
+.cal-card-body {
+    flex: 1;
+    padding: 4px 22px 4px 6px;
+    /* padding-right = ancho franja estado + holgura */
+    min-height: 0;
+}
+
+.cal-card-title {
+    font-size: .8em;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+}
+
+.cal-card-gestor {
+    font-size: .7em;
+    color: #444;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+    font-style: italic;
+}
+
+/* ── Franja derecha: color del ESTADO ── */
+.cal-card-status-strip {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 10px;
+    border-radius: 0 4px 4px 0;
+    /* [FIX] Evitar que la franja de estado capture clicks destinados al resize handle */
+    pointer-events: none;
+}
+
+/* Estado: tachado para canceladas */
+.cal-event-status-2 .cal-card-title {
+    text-decoration: line-through;
+    opacity: .75;
+}
+
+.cal-event-status-2.fc-event.cal-event-card {
+    opacity: .7;
+}
+
+/* ── Vista lista (listWeek) — adaptar la tarjeta ── */
+.fc-list-event .cal-card-wrap {
+    flex-direction: row;
+    align-items: center;
+    min-height: 32px;
+    padding-right: 12px;
+}
+
+.fc-list-event .cal-card-top-strip {
+    width: 6px;
+    height: auto;
+    min-height: 32px;
+    line-height: 1;
+    writing-mode: vertical-rl;
+    padding: 4px 0;
+}
+
+/* FullCalendar toolbar */
+.fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fc .fc-button {
+    border-radius: 4px !important;
+    font-size: .85em !important;
+}
+
+/* allDay row — asegurar altura mínima visible */
+.fc-daygrid-event.cal-event-card {
+    min-height: 46px;
+}
+
+.fc-daygrid-event.cal-event-card .cal-card-wrap {
+    min-height: 46px;
+}
+
+.fc-daygrid-event.cal-event-card .cal-card-top-strip {
+    height: 16px;
+    min-height: 16px;
+    font-size: .65em;
+    line-height: 16px;
+}
+
+.fc-daygrid-event.cal-event-card .cal-card-body {
+    padding: 2px 22px 2px 6px;
+}
+
+.fc-daygrid-event.cal-event-card .cal-card-title {
+    font-size: .74em;
+}
+
+.fc-daygrid-event.cal-event-card .cal-card-gestor {
+    font-size: .64em;
+    display: block;
+    /* visible en todas las vistas */
+}
+
+
+/* FullCalendar - ajustes de toolbar para Dolibarr */
+.fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fc .fc-button {
+    border-radius: 4px !important;
+    font-size: .85em !important;
+}
+
+/* ============================================================
+   Popover de evento
+   ============================================================ */
+.cal-popover {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .15);
+    width: 300px;
+    font-size: .875em;
+    color: #343a40;
+    z-index: 9999;
+}
+
+.cal-popover-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 8px;
+    font-weight: 700;
+    font-size: 1.05em;
+    border-bottom: 1px solid #f0f0f0;
+    color: #212529;
+}
+
+.cal-popover-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, .15);
+}
+
+.cal-popover-body {
+    padding: 10px 14px;
+}
+
+.cal-popover-row {
+    display: flex;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: .92em;
+}
+
+.cal-popover-label {
+    font-weight: 600;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.cal-popover-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+   Color picker
+   ============================================================ */
+.cal-color-picker {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .15);
+    width: 260px;
+    padding: 14px;
+    z-index: 9999;
+}
+
+.cal-color-picker-title {
+    font-weight: 700;
+    font-size: .9em;
+    margin-bottom: 10px;
+    color: #343a40;
+}
+
+.cal-color-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.cal-color-preset {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .12s, border-color .12s;
+    padding: 0;
+    outline: none;
+}
+
+.cal-color-preset:hover {
+    transform: scale(1.2);
+    border-color: rgba(0, 0, 0, .25);
+}
+
+.cal-color-custom-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: .82em;
+}
+
+.cal-color-custom-input {
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.cal-color-remove-wrap {
+    margin-top: 6px;
+}
+
+.cal-color-remove-wrap .cal-color-remove {
+    width: 100%;
+    font-size: .82em;
+}
+
+/* ============================================================
+   Toasts / Notificaciones
+   ============================================================ */
+.cal-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.cal-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+    font-size: .875em;
+    font-weight: 600;
+    color: #fff;
+    max-width: 340px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity .3s, transform .3s;
+    pointer-events: all;
+}
+
+.cal-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cal-toast-success {
+    background: #28a745;
+}
+
+.cal-toast-error {
+    background: #dc3545;
+}
+
+.cal-toast-info {
+    background: #0d6efd;
+}
+
+.cal-toast-icon {
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   Leyenda
+   ============================================================ */
+.calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    font-size: .82em;
+    color: #495057;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, .15);
+    flex-shrink: 0;
+}
+
+.legend-line {
+    display: inline-block;
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    /* cuadrado redondeado para diferenciar del punto de tipo */
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, .15);
+}
+
+.legend-inprogress {
+    background: #FFC107;
+}
+
+.legend-completed {
+    background: #4CAF50;
+}
+
+.legend-cancelled {
+    background: #F44336;
+    opacity: .75;
+}
+
+.legend-separator {
+    color: #ced4da;
+}
+
+/* ============================================================
+   Responsive / Móvil
+   ============================================================ */
+@media (max-width: 768px) {
+    .calendar-filters-inner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-toggle-btn {
+        width: 100%;
+    }
+
+    .filter-group-actions {
+        margin-left: 0;
+    }
+
+    .calendar-legend {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .cal-popover,
+    .cal-color-picker {
+        width: calc(100vw - 32px);
+        left: 16px !important;
+    }
+
+    .cal-toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: 16px;
+    }
+
+    .cal-toast {
+        max-width: 100%;
+    }
+}

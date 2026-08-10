@@ -1,6 +1,7 @@
 # MedTriggers - Español
 Module600100Name = MedTriggers
-Module600100Desc = Módulo para mostrar/ocultar campos condicionales
+Module600100Desc = Campos condicionales y selects dependientes para fichas de pacientes
 MedTriggersSetup = Configuración de MedTriggers
 MedTriggersFieldConfig = Configuración de campos condicionales
 MedTriggersFieldConfigHelp = Formato: trigger:dependiente1,dependiente2
+MedTriggersDependentSelects = Selects dependientes (medicamento → concentración)

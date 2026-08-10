@@ -1,5 +1,5 @@
 <?php
-/* Copyright (C) 2024 DatiLab
+/* Copyright (C) 2024-2026 DatiLab
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,20 +21,22 @@ class modMedTriggers extends DolibarrModules
         $this->name = preg_replace('/^mod/i', '', get_class($this));
         $this->family = "other";
         $this->module_position = '90';
-        $this->version = '1.0.2';
+        $this->version = '2.2.0';
         $this->editor_name = 'DatiLab';
         $this->editor_url = 'https://datilab.com';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
-        $this->description = "Módulo para mostrar/ocultar campos condicionales en fichas de pacientes";
-        $this->descriptionlong = "Este módulo permite configurar campos extrafields que se muestran u ocultan dependiendo del valor de un campo checkbox.";
+        $this->description = "Campos condicionales y selects dependientes para fichas de pacientes";
+        $this->descriptionlong = "Módulo que permite: (1) mostrar/ocultar campos extrafields según checkbox, (2) selects dependientes con carga AJAX (ej: medicamento → concentración). Requiere módulo Gestion activo.";
         $this->picto = 'generic';
         $this->need_dolibarr_version = array(14, 0);
-        $this->depends = array();
+        $this->depends = array('modGestion');
         $this->requiredby = array();
         $this->conflictwith = array();
         $this->langfiles = array("medtriggers@medtriggers");
 
+        // Constantes del módulo
         $this->const = array(
+            // Config toggle show/hide (v1)
             array(
                 'MEDTRIGGERS_FIELD_CONFIG',
                 'chaine',
@@ -46,11 +48,21 @@ class modMedTriggers extends DolibarrModules
             ),
         );
 
+        // Partes del módulo
         $this->module_parts = array(
-            'js' => array('/medtriggers/js/medtriggers.js'),
+            'js' => array('/medtriggers/js/medtriggers.js?v='.$this->version),
             'triggers' => 1,
             'hooks' => array(
-                'data' => array('thirdpartycard', 'patientcard', 'consultationcard'),
+                'data' => array(
+                    'thirdpartycard',
+                    'patientcard',
+                    'consultationcard',
+                    'thirdpartycontact',
+                    'societecard',
+                    'cabinetmedcard',
+                    'cabinetmedconsultation',
+                    'globalcard',
+                ),
                 'entity' => '0',
             ),
         );
@@ -61,8 +73,7 @@ class modMedTriggers extends DolibarrModules
 
     public function init($options = '')
     {
-        $result = $this->_load_tables('/medtriggers/sql/');
-        if ($result < 0) return -1;
+        // No se crean tablas propias: usa llx_gestion_medicamento y llx_gestion_medicamento_det del módulo Gestion
         return $this->_init(array(), $options);
     }
 

@@ -1,0 +1,2 @@
+-- Copyright (C) 2024-2026 DatiLab
+-- Sin índices propios: las tablas pertenecen al módulo Gestion.
