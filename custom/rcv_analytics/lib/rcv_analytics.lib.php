@@ -381,7 +381,7 @@ function rcv_print_export_xlsx_button($type, $label, $title = '')
 {
     global $user;
 
-    if (empty($user->admin) && !$user->hasRight('rcv_analytics', 'export')) return;
+    if (empty($user->admin) && !$user->hasRight('rcvanalytics', 'export')) return;
 
     print '<button type="submit" class="butAction rcv-btn-export-xlsx" name="type" value="'.dol_escape_htmltag($type).'"'
         .' formaction="'.dol_buildpath('/rcv_analytics/export.php', 1).'"'

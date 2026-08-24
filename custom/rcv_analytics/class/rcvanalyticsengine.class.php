@@ -503,7 +503,7 @@ class RcvAnalyticsEngine
      * Distribución de pacientes por ciudad.
      * @return array [['categoria' => town, 'total' => N], ...]
      */
-    public function getPatientsByCiudad()
+    public function getPatientsByCiudad($limit = 30)
     {
         $built = $this->buildWhere(false);
 
@@ -514,7 +514,7 @@ class RcvAnalyticsEngine
             .$built['where']
             .' GROUP BY s.town'
             .' ORDER BY total DESC'
-            .' LIMIT 30';
+            .((int) $limit > 0 ? ' LIMIT '.(int) $limit : '');
 
         return $this->fetchRows($sql);
     }
@@ -614,8 +614,9 @@ class RcvAnalyticsEngine
      * Devuelve filas con columnas 'categoria' y 'total'
      *
      * @param  string $field  Campo de societe_extrafields
+     * @param  int    $limit  Máximo de categorías; 0 = sin límite (exportaciones)
      */
-    public function getConsultationsByPatientField($field)
+    public function getConsultationsByPatientField($field, $limit = 20)
     {
         $allowed = array(
             'eps','medicamento','operador_logistico','tipo_de_poblacion',
@@ -655,7 +656,7 @@ class RcvAnalyticsEngine
             .$built['where']
             .' GROUP BY '.$groupExpr
             .' ORDER BY total DESC'
-            .' LIMIT 20';
+            .((int) $limit > 0 ? ' LIMIT '.(int) $limit : '');
 
         return $this->fetchRows($sql);
     }
@@ -1254,7 +1255,7 @@ class RcvAnalyticsEngine
      * Distribución de consultas por ciudad del paciente.
      * @return array [['categoria' => town, 'total' => N], ...]
      */
-    public function getConsultationsByCiudad()
+    public function getConsultationsByCiudad($limit = 20)
     {
         $built = $this->buildWhere(true);
 
@@ -1265,7 +1266,7 @@ class RcvAnalyticsEngine
             .$built['where']
             .' GROUP BY s.town'
             .' ORDER BY total DESC'
-            .' LIMIT 20';
+            .((int) $limit > 0 ? ' LIMIT '.(int) $limit : '');
 
         return $this->fetchRows($sql);
     }

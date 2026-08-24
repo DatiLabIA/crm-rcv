@@ -17,7 +17,7 @@ dol_include_once('/rcv_analytics/lib/rcv_analytics.lib.php');
 
 $langs->loadLangs(array("companies", "rcv_analytics@rcv_analytics"));
 
-if (!$user->admin && !$user->hasRight('rcv_analytics', 'read')) accessforbidden();
+if (!$user->admin && !$user->hasRight('rcvanalytics', 'read')) accessforbidden();
 
 $form   = new Form($db);
 $engine = new RcvAnalyticsEngine($db);

@@ -1,5 +1,9 @@
 # Spanish (Colombia) - RCV Analytics Module
 
+# Module name/description (Modules page + group permissions page)
+ModuleRcvAnalyticsName=Analíticas RCV
+ModuleRcvAnalyticsDesc=Analíticas avanzadas de pacientes y consultas
+
 Dashboard=Dashboard
 Analiticas=Analíticas
 RcvAnalyticsDashboard=Analíticas - Dashboard

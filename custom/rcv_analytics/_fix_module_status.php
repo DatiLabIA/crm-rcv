@@ -46,7 +46,7 @@ if (isset($conf->rcvanalytics)) {
 
 // Probar verifCond
 $condEnabled = '$conf->rcvanalytics->enabled';
-$condPerms   = '$user->hasRight("rcv_analytics", "read")';
+$condPerms   = '$user->hasRight("rcvanalytics", "read")';
 
 $resEnabled = verifCond($condEnabled);
 echo "verifCond('$condEnabled') = ".var_export($resEnabled, true)."\n";
@@ -64,7 +64,7 @@ echo "dol_eval perms = ".var_export($evPerms, true)."\n";
 // Estado del usuario
 echo "\n\$user->admin = ".var_export($user->admin, true)."\n";
 echo "\$user->socid = ".var_export($user->socid, true)." (0=interno)\n";
-echo "\$user->hasRight('rcv_analytics','read') = ".var_export($user->hasRight('rcv_analytics', 'read'), true)."\n";
+echo "\$user->hasRight('rcvanalytics','read') = ".var_export($user->hasRight('rcvanalytics', 'read'), true)."\n";
 
 // isModEnabled
 echo "\nisModEnabled('rcvanalytics') = ".var_export(isModEnabled('rcvanalytics'), true)."\n";

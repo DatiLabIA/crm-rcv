@@ -1,5 +1,9 @@
 # English - RCV Analytics Module
 
+# Module name/description (Modules page + group permissions page)
+ModuleRcvAnalyticsName=RCV Analytics
+ModuleRcvAnalyticsDesc=Advanced patient and consultation analytics
+
 Dashboard=Dashboard
 Analiticas=Analytics
 RcvAnalyticsDashboard=Analytics - Dashboard

@@ -29,7 +29,7 @@ dol_include_once('/rcv_analytics/lib/rcv_analytics.lib.php');
 
 $langs->loadLangs(array("companies", "rcv_analytics@rcv_analytics"));
 
-if (!$user->admin && !$user->hasRight('rcv_analytics', 'export')) accessforbidden();
+if (!$user->admin && !$user->hasRight('rcvanalytics', 'export')) accessforbidden();
 
 $form   = new Form($db);
 $engine = new RcvAnalyticsEngine($db);
@@ -220,6 +220,53 @@ if ($action === 'export' || !empty($exportType)) {
         $ws->addChart($chart);
     };
 
+    /**
+     * Añade una hoja de evolución temporal (tabla + gráfica de líneas).
+     * $rows debe traer las columnas 'periodo' y 'total'.
+     */
+    $addTimeSheet = function (
+        $spreadsheet, $sheetTitle, $chartTitle,
+        array $rows, $col2Label
+    ) use ($styleSubHeader, $styleData, $styleNumber) {
+        $ws = $spreadsheet->createSheet();
+        $ws->setTitle(mb_substr($sheetTitle, 0, 31));
+
+        $ws->setCellValue('A1', 'Período');
+        $ws->setCellValue('B1', $col2Label);
+        $ws->getStyle('A1:B1')->applyFromArray($styleSubHeader);
+        $ws->getColumnDimension('A')->setWidth(20);
+        $ws->getColumnDimension('B')->setWidth(18);
+
+        $row = 2;
+        foreach ($rows as $r) {
+            $ws->setCellValue('A'.$row, $r['periodo']);
+            $ws->setCellValue('B'.$row, (int) $r['total']);
+            $ws->getStyle('A'.$row)->applyFromArray($styleData);
+            $ws->getStyle('B'.$row)->applyFromArray($styleNumber);
+            $row++;
+        }
+        $n = $row - 2;
+        if ($n < 1) return;
+
+        $sheetName = $ws->getTitle();
+        $lbl  = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetName}'!\$B\$1", null, 1);
+        $cats = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetName}'!\$A\$2:\$A\$".($n + 1), null, $n);
+        $vals = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetName}'!\$B\$2:\$B\$".($n + 1), null, $n);
+
+        $series   = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 0), array($lbl), array($cats), array($vals));
+        $plotArea = new PlotArea(null, array($series));
+        $chart    = new Chart(
+            'chart_'.preg_replace('/[^a-z0-9]/i', '_', $sheetTitle),
+            new Title($chartTitle),
+            new Legend(Legend::POSITION_BOTTOM, null, false),
+            $plotArea,
+            true, 0, null, null
+        );
+        $chart->setTopLeftPosition('D1');
+        $chart->setBottomRightPosition('P20');
+        $ws->addChart($chart);
+    };
+
     switch ($type) {
         // ── PACIENTES ────────────────────────────────────────────────────
         case 'patients':
@@ -245,6 +292,19 @@ if ($action === 'export' || !empty($exportType)) {
                 $addDistSheet($spreadsheet, $sheetTitle, $chartTitle, $dist, $sheetTitle, 'N° Pacientes', $ctype, $first);
                 $first = false;
             }
+
+            // Distribución geográfica
+            $addDistSheet($spreadsheet, 'Por Departamento', 'Pacientes por Departamento',
+                $engine->getPatientsByDepartamento(), 'Departamento', 'N° Pacientes');
+            // Sin límite: en el XLSX se quiere el listado completo, no el top N de la gráfica
+            $addDistSheet($spreadsheet, 'Por Ciudad', 'Pacientes por Ciudad',
+                $engine->getPatientsByCiudad(0), 'Ciudad', 'N° Pacientes');
+
+            // Evolución temporal (por fecha de creación del paciente)
+            $addTimeSheet($spreadsheet, 'Evolución Mensual', 'Pacientes Nuevos por Mes',
+                $engine->getPatientsOverTime('month'), 'N° Pacientes');
+            $addTimeSheet($spreadsheet, 'Evolución Anual', 'Pacientes Nuevos por Año',
+                $engine->getPatientsOverTime('year'), 'N° Pacientes');
             break;
 
         // ── LISTADO PLANO DE PACIENTES ────────────────────────────────────
@@ -337,54 +397,38 @@ if ($action === 'export' || !empty($exportType)) {
             $dist = array_map(function($r){ return array('categoria'=>$r['tipo'], 'total'=>$r['total']); }, $rows);
             $addDistSheet($spreadsheet, 'Por Tipo de Atención', 'Consultas por Tipo', $dist, 'Tipo de Atención', 'Total Consultas', 'bar', true);
 
-            // Hoja 2: consultas en el tiempo
-            $ws2 = $spreadsheet->createSheet();
-            $ws2->setTitle('Evolución Temporal');
-            $ws2->setCellValue('A1', 'Período');
-            $ws2->setCellValue('B1', 'Consultas');
-            $ws2->getStyle('A1:B1')->applyFromArray($styleSubHeader);
-            $ws2->getColumnDimension('A')->setWidth(20);
-            $ws2->getColumnDimension('B')->setWidth(15);
-            $overtime = $engine->getConsultationsOverTime($groupBy);
-            $r = 2;
-            foreach ($overtime as $row) {
-                $ws2->setCellValue('A'.$r, $row['periodo']);
-                $ws2->setCellValue('B'.$r, (int)$row['total']);
-                $ws2->getStyle('A'.$r)->applyFromArray($styleData);
-                $ws2->getStyle('B'.$r)->applyFromArray($styleNumber);
-                $r++;
-            }
-            $n = $r - 2;
-            if ($n > 0) {
-                $lbl  = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'Evolución Temporal'!\$B\$1", null, 1);
-                $cats = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'Evolución Temporal'!\$A\$2:\$A\$".($n+1), null, $n);
-                $vals = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'Evolución Temporal'!\$B\$2:\$B\$".($n+1), null, $n);
-                $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0,0), array($lbl), array($cats), array($vals));
-                $plotArea = new PlotArea(null, array($series));
-                $chart = new Chart('chart_evolucion', new Title('Evolución de Consultas'), new Legend(Legend::POSITION_BOTTOM, null, false), $plotArea, true, 0, null, null);
-                $chart->setTopLeftPosition('D1');
-                $chart->setBottomRightPosition('P20');
-                $ws2->addChart($chart);
+            // Hoja 2: evolución mensual (siempre presente, sea cual sea la
+            // agrupación elegida en pantalla)
+            $addTimeSheet($spreadsheet, 'Evolución Mensual', 'Consultas por Mes',
+                $engine->getConsultationsOverTime('month'), 'Total Consultas');
+
+            // Si en pantalla se agrupó por semana o año, se añade también esa vista
+            if ($groupBy !== 'month') {
+                $labelGroup = ($groupBy === 'week') ? 'Semanal' : 'Anual';
+                $addTimeSheet($spreadsheet, 'Evolución '.$labelGroup, 'Consultas por '.($groupBy === 'week' ? 'Semana' : 'Año'),
+                    $engine->getConsultationsOverTime($groupBy), 'Total Consultas');
             }
 
             // Hojas 3..N: mismas distribuciones que muestra la página de Consultas
+            // hoja => [título hoja, título gráfica, encabezado columna A]
             $consDims = array(
-                'eps'             => array('Por EPS',        'Consultas por EPS'),
-                'programa'        => array('Por Programa',   'Consultas por Programa'),
-                'medico_tratante' => array('Por Médico',     'Consultas por Médico Tratante'),
-                'regimen'         => array('Por Régimen',    'Consultas por Régimen'),
-                'ips_primaria'    => array('Por IPS',        'Consultas por IPS Primaria'),
+                'eps'             => array('Por EPS',      'Consultas por EPS',            'EPS'),
+                'programa'        => array('Por Programa', 'Consultas por Programa',       'Programa'),
+                'medico_tratante' => array('Por Médico',   'Consultas por Médico Tratante', 'Médico Tratante'),
+                'regimen'         => array('Por Régimen',  'Consultas por Régimen',        'Régimen'),
+                'ips_primaria'    => array('Por IPS',      'Consultas por IPS Primaria',   'IPS Primaria'),
             );
             foreach ($consDims as $field => $info) {
-                list($sheetTitle, $chartTitle) = $info;
+                list($sheetTitle, $chartTitle, $colLabel) = $info;
                 $ctype = ($field === 'regimen') ? 'pie' : 'bar';
+                // Sin límite: en el XLSX se quiere el listado completo, no el top N de la gráfica
                 $addDistSheet($spreadsheet, $sheetTitle, $chartTitle,
-                    $engine->getConsultationsByPatientField($field), $chartTitle, 'Total Consultas', $ctype);
+                    $engine->getConsultationsByPatientField($field, 0), $colLabel, 'Total Consultas', $ctype);
             }
             $addDistSheet($spreadsheet, 'Por Departamento', 'Consultas por Departamento',
                 $engine->getConsultationsByDepartamento(), 'Departamento', 'Total Consultas');
             $addDistSheet($spreadsheet, 'Por Ciudad', 'Consultas por Ciudad',
-                $engine->getConsultationsByCiudad(), 'Ciudad', 'Total Consultas');
+                $engine->getConsultationsByCiudad(0), 'Ciudad', 'Total Consultas');
 
             // Hoja de gestores: incluye la columna extra de pacientes únicos
             $gestores = $engine->getConsultationsByGestor();

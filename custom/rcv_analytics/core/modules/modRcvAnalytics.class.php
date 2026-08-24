@@ -16,8 +16,14 @@ class modRcvAnalytics extends DolibarrModules
 
         $this->db = $db;
 
-        $this->numero = 502200;
-        $this->rights_class = 'rcv_analytics';
+        // 502300 (antes 502200). El 502200 lo usaba también custom/rcvrest, y como los
+        // ids de permisos se derivan de $numero, sus filas 502201..502204 bloqueaban la
+        // inserción de los permisos de este módulo en llx_rights_def.
+        $this->numero = 502300;
+        // OJO: rights_class debe coincidir con la clave de $conf->modules ('rcvanalytics'),
+        // porque User::hasRight() hace un isModEnabled($module) previo. Con guion bajo
+        // ('rcv_analytics') isModEnabled() siempre devuelve false y ningún permiso funciona.
+        $this->rights_class = 'rcvanalytics';
         $this->family = "crm";
         $this->module_position = '95';
 
@@ -77,8 +83,8 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/index.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 85,
-            'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->hasRight("rcv_analytics", "read")',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
+            'perms'    => '$user->hasRight("rcvanalytics", "read")',
             'target'   => '',
             'user'     => 0,
         );
@@ -93,8 +99,8 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/index.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 10,
-            'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->hasRight("rcv_analytics", "read")',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
+            'perms'    => '$user->hasRight("rcvanalytics", "read")',
             'target'   => '',
             'user'     => 0,
         );
@@ -109,8 +115,8 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/patients.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 20,
-            'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->hasRight("rcv_analytics", "read")',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
+            'perms'    => '$user->hasRight("rcvanalytics", "read")',
             'target'   => '',
             'user'     => 0,
         );
@@ -125,8 +131,8 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/consultations.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 30,
-            'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->hasRight("rcv_analytics", "read")',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
+            'perms'    => '$user->hasRight("rcvanalytics", "read")',
             'target'   => '',
             'user'     => 0,
         );
@@ -141,8 +147,8 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/export.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 50,
-            'enabled'  => '$conf->rcvanalytics->enabled',
-            'perms'    => '$user->hasRight("rcv_analytics", "export")',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
+            'perms'    => '$user->hasRight("rcvanalytics", "export")',
             'target'   => '',
             'user'     => 0,
         );
@@ -157,20 +163,77 @@ class modRcvAnalytics extends DolibarrModules
             'url'      => '/custom/rcv_analytics/admin/roles.php',
             'langs'    => 'rcv_analytics@rcv_analytics',
             'position' => 60,
-            'enabled'  => '$conf->rcvanalytics->enabled',
+            'enabled'  => 'isModEnabled("rcvanalytics")',
             'perms'    => '$user->admin',
             'target'   => '',
             'user'     => 0,
         );
     }
 
+    /**
+     * Borra los registros dejados por el rights_class antiguo ('rcv_analytics').
+     *
+     * Hace falta porque delete_menus() y delete_permissions() borran por el
+     * rights_class ACTUAL, así que al renombrarlo las filas viejas quedan huérfanas.
+     * Las de llx_menu además rompen la activación: Menubase::create() detecta el
+     * duplicado por menu_handler+fk_menu+position+url (sin mirar 'module') e
+     * insert_menus() aborta con "Menu entry (all,85,...) already exists".
+     *
+     * Se restringe a menu_handler='all' (lo que inserta la activación); los menús
+     * creados a mano desde Inicio > Configuración > Menús llevan el handler del
+     * gestor activo y no se tocan.
+     *
+     * @return void
+     */
+    private function cleanupLegacyRegistration()
+    {
+        global $conf;
+
+        $entity = (int) $conf->entity;
+        $legacy = 'rcv_analytics'; // rights_class anterior
+
+        // Asignaciones a usuarios y grupos de los permisos antiguos
+        $ids = array();
+        $resql = $this->db->query("SELECT id FROM ".MAIN_DB_PREFIX."rights_def"
+            ." WHERE module = '".$this->db->escape($legacy)."' AND entity IN (0, ".$entity.")");
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $ids[] = (int) $obj->id;
+            }
+        }
+        if (count($ids)) {
+            $in = implode(',', $ids);
+            $this->db->query("DELETE FROM ".MAIN_DB_PREFIX."usergroup_rights WHERE fk_id IN (".$in.") AND entity IN (0, ".$entity.")");
+            $this->db->query("DELETE FROM ".MAIN_DB_PREFIX."user_rights WHERE fk_id IN (".$in.") AND entity IN (0, ".$entity.")");
+            $this->db->query("DELETE FROM ".MAIN_DB_PREFIX."rights_def WHERE module = '".$this->db->escape($legacy)."' AND entity IN (0, ".$entity.")");
+        }
+
+        // Entradas de menú generadas por activaciones anteriores (nombre viejo o nuevo)
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."menu";
+        $sql .= " WHERE menu_handler = 'all'";
+        $sql .= " AND entity IN (0, ".$entity.")";
+        $sql .= " AND (module IN ('".$this->db->escape($legacy)."', '".$this->db->escape($this->rights_class)."')";
+        $sql .= " OR url LIKE '%/custom/rcv_analytics/%')";
+        $this->db->query($sql);
+    }
+
     public function init($options = '')
     {
+        // Se ejecuta fuera de la transacción de _init() a propósito: si _init()
+        // fallara y revirtiera, la limpieza debe permanecer hecha para que el
+        // siguiente intento de activación no vuelva a chocar.
+        $this->cleanupLegacyRegistration();
+
         return $this->_init(array(), $options);
     }
 
     public function remove($options = '')
     {
-        return $this->_remove(array(), $options);
+        $res = $this->_remove(array(), $options);
+
+        // _remove() sólo borra por el rights_class actual; barremos los restos viejos
+        $this->cleanupLegacyRegistration();
+
+        return $res;
     }
 }
