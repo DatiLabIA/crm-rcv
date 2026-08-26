@@ -31,6 +31,11 @@ $langs->loadLangs(array("companies", "rcv_analytics@rcv_analytics"));
 
 if (!$user->admin && !$user->hasRight('rcvanalytics', 'export')) accessforbidden();
 
+// El listado de pacientes lleva identificadores directos (nombre, documento, email,
+// teléfono) junto al diagnóstico, así que va detrás de su propio permiso. Los demás
+// exports son agregados y sólo requieren 'export'.
+$canExportPii = ($user->admin || $user->hasRight('rcvanalytics', 'exportpii'));
+
 $form   = new Form($db);
 $engine = new RcvAnalyticsEngine($db);
 
@@ -70,6 +75,12 @@ $engine->setFilters($cleanFilters);
 // ─── Exportar XLSX ─────────────────────────────────────────────────────────
 if ($action === 'export' || !empty($exportType)) {
     $type = $exportType ?: GETPOST('export_type', 'alpha');
+
+    // Comprobación en servidor: ocultar la opción en el formulario no basta,
+    // el tipo llega por GET/POST y se puede forzar a mano.
+    if ($type === 'patients_list' && !$canExportPii) {
+        accessforbidden($langs->trans('ExportPiiForbidden'));
+    }
     // Agrupación temporal: llega del formulario de Consultas para que las hojas
     // de evolución coincidan con lo que el usuario ve en pantalla.
     $groupBy = GETPOST('filter_groupby', 'alpha');
@@ -142,7 +153,8 @@ if ($action === 'export' || !empty($exportType)) {
         $spreadsheet, $sheetTitle, $chartTitle,
         array $rows, $col1Label, $col2Label,
         $chartType = 'bar',
-        $isFirst = false
+        $isFirst = false,
+        $codeColLabel = ''
     ) use ($styleHeader, $styleSubHeader, $styleData, $styleNumber) {
         if ($isFirst) {
             $ws = $spreadsheet->getActiveSheet();
@@ -152,20 +164,42 @@ if ($action === 'export' || !empty($exportType)) {
             $ws->setTitle(mb_substr($sheetTitle, 0, 31));
         }
 
+        // Columna de código opcional (p. ej. el código CIE del diagnóstico). Cuando
+        // está, se antepone y el resto de columnas —y la gráfica— se desplazan una
+        // posición a la derecha.
+        $hasCode = ($codeColLabel !== '' && !empty($rows) && array_key_exists('codigo', reset($rows)));
+
+        $colCode  = 'A';
+        $colCat   = $hasCode ? 'B' : 'A';
+        $colVal   = $hasCode ? 'C' : 'B';
+        $chartTL  = $hasCode ? 'E1' : 'D1';
+        $chartBR  = $hasCode ? 'Q20' : 'P20';
+
         // Encabezados de tabla
-        $ws->setCellValue('A1', $col1Label);
-        $ws->setCellValue('B1', $col2Label);
-        $ws->getStyle('A1:B1')->applyFromArray($styleSubHeader);
-        $ws->getColumnDimension('A')->setWidth(35);
-        $ws->getColumnDimension('B')->setWidth(18);
+        if ($hasCode) {
+            $ws->setCellValue($colCode.'1', $codeColLabel);
+            $ws->getColumnDimension($colCode)->setWidth(16);
+        }
+        $ws->setCellValue($colCat.'1', $col1Label);
+        $ws->setCellValue($colVal.'1', $col2Label);
+        $ws->getStyle(($hasCode ? $colCode : $colCat).'1:'.$colVal.'1')->applyFromArray($styleSubHeader);
+        $ws->getColumnDimension($colCat)->setWidth(35);
+        $ws->getColumnDimension($colVal)->setWidth(18);
 
         // Datos
         $row = 2;
         foreach ($rows as $r) {
-            $ws->setCellValue('A'.$row, $r['categoria']);
-            $ws->setCellValue('B'.$row, (int) $r['total']);
-            $ws->getStyle('A'.$row)->applyFromArray($styleData);
-            $ws->getStyle('B'.$row)->applyFromArray($styleNumber);
+            if ($hasCode) {
+                // Texto explícito: los códigos con ceros a la izquierda no deben
+                // convertirse en número al abrir el XLSX.
+                $ws->setCellValueExplicit($colCode.$row, (string) $r['codigo'],
+                    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $ws->getStyle($colCode.$row)->applyFromArray($styleData);
+            }
+            $ws->setCellValue($colCat.$row, $r['categoria']);
+            $ws->setCellValue($colVal.$row, (int) $r['total']);
+            $ws->getStyle($colCat.$row)->applyFromArray($styleData);
+            $ws->getStyle($colVal.$row)->applyFromArray($styleNumber);
             $row++;
         }
         $dataRows = $row - 2;
@@ -177,15 +211,15 @@ if ($action === 'export' || !empty($exportType)) {
         // ── Gráfica ──────────────────────────────────────────────────────
         $labelsSeries = new DataSeriesValues(
             DataSeriesValues::DATASERIES_TYPE_STRING,
-            "'{$sheetName}'!\$A\$1", null, 1
+            "'{$sheetName}'!\${$colCat}\$1", null, 1
         );
         $categorySeries = new DataSeriesValues(
             DataSeriesValues::DATASERIES_TYPE_STRING,
-            "'{$sheetName}'!\$A\$2:\$A\$".($dataRows + 1), null, $dataRows
+            "'{$sheetName}'!\${$colCat}\$2:\${$colCat}\$".($dataRows + 1), null, $dataRows
         );
         $valueSeries = new DataSeriesValues(
             DataSeriesValues::DATASERIES_TYPE_NUMBER,
-            "'{$sheetName}'!\$B\$2:\$B\$".($dataRows + 1), null, $dataRows
+            "'{$sheetName}'!\${$colVal}\$2:\${$colVal}\$".($dataRows + 1), null, $dataRows
         );
 
         $barDir   = ($chartType === 'bar') ? DataSeries::DIRECTION_BAR : null;
@@ -213,9 +247,9 @@ if ($action === 'export' || !empty($exportType)) {
             true, 0, null, null
         );
 
-        // Posición: columna D fila 1, ancho 12 cols × 20 filas
-        $chart->setTopLeftPosition('D1');
-        $chart->setBottomRightPosition('P20');
+        // Posición: justo a la derecha de la tabla, ancho 12 cols × 20 filas
+        $chart->setTopLeftPosition($chartTL);
+        $chart->setBottomRightPosition($chartBR);
 
         $ws->addChart($chart);
     };
@@ -282,6 +316,9 @@ if ($action === 'export' || !empty($exportType)) {
                 'regimen'            => array('Régimen',               'Distribución Régimen'),
                 'tipo_de_afiliacion' => array('Tipo de Afiliación',    'Tipo de Afiliación'),
             );
+            // Dimensiones cuyo diccionario tiene código: se saca en una columna aparte
+            $codeColumns = array('diagnostico' => 'Código');
+
             $first = true;
             foreach ($dimensions as $field => $info) {
                 list($sheetTitle, $chartTitle) = $info;
@@ -289,7 +326,8 @@ if ($action === 'export' || !empty($exportType)) {
                 $ctype = in_array($field, array('estado_del_paciente','tipo_de_poblacion','regimen','tipo_de_afiliacion'))
                     ? 'pie'
                     : 'bar';
-                $addDistSheet($spreadsheet, $sheetTitle, $chartTitle, $dist, $sheetTitle, 'N° Pacientes', $ctype, $first);
+                $codeLabel = isset($codeColumns[$field]) ? $codeColumns[$field] : '';
+                $addDistSheet($spreadsheet, $sheetTitle, $chartTitle, $dist, $sheetTitle, 'N° Pacientes', $ctype, $first, $codeLabel);
                 $first = false;
             }
 
@@ -636,13 +674,19 @@ print '<div style="margin:16px 0 8px">';
 print '<h4 style="margin:0 0 8px">'.$langs->trans('TipoExportacion').'</h4>';
 print '<div style="display:flex;gap:12px;flex-wrap:wrap">';
 
-$exports = array(
-    'patients_list' => array('icon' => '👥', 'label' => 'Listado de Pacientes', 'desc' => '1 hoja: una fila por paciente con todos sus datos'),
-    'patients'      => array('icon' => '📊', 'label' => 'Estadísticas Pacientes',  'desc' => '9 hojas: EPS, Medicamento, Operador, Estado, Programa, Diagnóstico, Población, Régimen, Afiliación'),
-    'consultations' => array('icon' => '📋', 'label' => 'Consultas',  'desc' => '2 hojas: Distribución por tipo + Evolución temporal'),
-    'adherencia'    => array('icon' => '📈', 'label' => 'Adherencia', 'desc' => '1 hoja: Cumplimiento + Pacientes únicos'),
-);
-$selectedType = array_key_exists($exportType, $exports) ? $exportType : 'patients_list';
+$exports = array();
+// Sólo para quien tenga el permiso de datos identificados: incluye nombre,
+// documento, email y teléfono. El resto de exports son agregados.
+if ($canExportPii) {
+    $exports['patients_list'] = array('icon' => '👥', 'label' => 'Listado de Pacientes', 'desc' => '1 hoja: una fila por paciente, con datos identificados');
+}
+$exports['patients']      = array('icon' => '📊', 'label' => 'Estadísticas Pacientes',  'desc' => '9 hojas: EPS, Medicamento, Operador, Estado, Programa, Diagnóstico, Población, Régimen, Afiliación');
+$exports['consultations'] = array('icon' => '📋', 'label' => 'Consultas',  'desc' => '2 hojas: Distribución por tipo + Evolución temporal');
+$exports['adherencia']    = array('icon' => '📈', 'label' => 'Adherencia', 'desc' => '1 hoja: Cumplimiento + Pacientes únicos');
+
+// Por defecto, los agregados. Antes el listado identificado venía preseleccionado,
+// de modo que bastaba entrar y pulsar descargar para llevárselo.
+$selectedType = array_key_exists($exportType, $exports) ? $exportType : 'patients';
 foreach ($exports as $val => $info) {
     print '<label style="display:flex;align-items:flex-start;gap:8px;padding:12px 16px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;min-width:220px">';
     print '<input type="radio" name="type" value="'.dol_escape_htmltag($val).'"'.($val === $selectedType ? ' checked' : '').' style="margin-top:2px">';

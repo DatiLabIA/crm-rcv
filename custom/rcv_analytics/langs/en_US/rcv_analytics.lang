@@ -101,3 +101,6 @@ Total=Total
 Pagina=Page
 Anterior=Previous
 Siguiente=Next
+
+# Permissions
+ExportPiiForbidden=You are not allowed to export identified patient data.

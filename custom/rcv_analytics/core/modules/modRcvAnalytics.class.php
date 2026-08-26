@@ -63,10 +63,20 @@ class modRcvAnalytics extends DolibarrModules
 
         $r++;
         $this->rights[$r][0] = $this->numero + $r;
-        $this->rights[$r][1] = 'Exportar reportes de analíticas';
+        $this->rights[$r][1] = 'Exportar reportes de analíticas (datos agregados)';
         $this->rights[$r][2] = 'w';
         $this->rights[$r][3] = 0;
         $this->rights[$r][4] = 'export';
+
+        // Permiso separado a propósito: el listado de pacientes incluye nombre,
+        // documento, email y teléfono junto al diagnóstico. Tener 'export' NO
+        // basta para descargarlo.
+        $r++;
+        $this->rights[$r][0] = $this->numero + $r;
+        $this->rights[$r][1] = 'Exportar datos identificados de pacientes (nombre, documento, contacto)';
+        $this->rights[$r][2] = 'w';
+        $this->rights[$r][3] = 0;
+        $this->rights[$r][4] = 'exportpii';
 
         // Menus
         // isModEnabled($x) → $conf->modules[strtolower($x)]

@@ -383,6 +383,14 @@ function rcv_print_export_xlsx_button($type, $label, $title = '')
 
     if (empty($user->admin) && !$user->hasRight('rcvanalytics', 'export')) return;
 
+    // Exportaciones con identificadores directos de paciente: exigen su propio
+    // permiso, no basta con 'export'. export.php repite la comprobación.
+    $piiTypes = array('patients_list');
+    if (in_array($type, $piiTypes, true)
+        && empty($user->admin) && !$user->hasRight('rcvanalytics', 'exportpii')) {
+        return;
+    }
+
     print '<button type="submit" class="butAction rcv-btn-export-xlsx" name="type" value="'.dol_escape_htmltag($type).'"'
         .' formaction="'.dol_buildpath('/rcv_analytics/export.php', 1).'"'
         .' title="'.dol_escape_htmltag($title !== '' ? $title : $label).'">'

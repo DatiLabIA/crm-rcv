@@ -103,3 +103,6 @@ Total=Total
 Pagina=Página
 Anterior=Anterior
 Siguiente=Siguiente
+
+# Permisos
+ExportPiiForbidden=No tiene permiso para exportar datos identificados de pacientes.

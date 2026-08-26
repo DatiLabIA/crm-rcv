@@ -54,6 +54,8 @@ class RcvAnalyticsEngine
     /**
      * Campos sellist: almacenan el rowid de la tabla de diccionario referenciada.
      * Formato: 'campo' => ['table' => 'nombre_tabla_sin_prefijo', 'label' => 'columna_label']
+     * 'code' es opcional: columna de código del diccionario, que las distribuciones
+     * devuelven aparte del label (ver getPatientDistributionBy()).
      */
     private static $SELLIST_TABLES = array(
         'medico_tratante'    => array('table' => 'gestion_medico',         'label' => 'nombre'),
@@ -62,7 +64,7 @@ class RcvAnalyticsEngine
         'medicamento'        => array('table' => 'gestion_medicamento',     'label' => 'etiqueta'),
         'programa'           => array('table' => 'gestion_programa',        'label' => 'nombre'),
         'concentracion'      => array('table' => 'gestion_medicamento_det', 'label' => 'concentracion_display'),
-        'diagnostico'        => array('table' => 'gestion_diagnostico',     'label' => 'label'),
+        'diagnostico'        => array('table' => 'gestion_diagnostico',     'label' => 'label', 'code' => 'codigo'),
     );
 
     /**
@@ -407,14 +409,23 @@ class RcvAnalyticsEngine
             $t        = self::$SELLIST_TABLES[$field];
             $refTable = MAIN_DB_PREFIX.$t['table'];
             $labelCol = $t['label'];
+            $codeCol  = empty($t['code']) ? '' : $t['code'];
 
-            $sql = 'SELECT COALESCE(NULLIF(TRIM(ref.'.$labelCol.'), \'\'), \'(Sin dato)\') AS categoria,'
+            // Si el diccionario tiene columna de código, se devuelve en 'codigo'
+            // aparte del label, para que el export pueda sacar ambos.
+            $selectCode = $codeCol
+                ? ' COALESCE(NULLIF(TRIM(ref.'.$codeCol.'), \'\'), \'\') AS codigo,'
+                : '';
+            $groupCode = $codeCol ? ', ref.'.$codeCol : '';
+
+            $sql = 'SELECT'.$selectCode
+                .' COALESCE(NULLIF(TRIM(ref.'.$labelCol.'), \'\'), \'(Sin dato)\') AS categoria,'
                 .' COUNT(DISTINCT s.rowid) AS total'
                 .' FROM '.MAIN_DB_PREFIX.'societe s'
                 .$built['joins']
                 .' LEFT JOIN '.$refTable.' ref ON ref.rowid = se.'.$field
                 .$built['where']
-                .' GROUP BY ref.rowid, ref.'.$labelCol
+                .' GROUP BY ref.rowid, ref.'.$labelCol.$groupCode
                 .' ORDER BY total DESC';
 
             return $this->fetchRows($sql);
