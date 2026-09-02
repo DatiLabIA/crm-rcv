@@ -371,6 +371,7 @@ if ($action === 'export' || !empty($exportType)) {
                 'ips_primaria'         => 'IPS Primaria',
                 'medico_tratante'      => 'Médico Tratante',
                 'tipo_de_poblacion'    => 'Tipo Población',
+                'diagnostico_codigo'   => 'Código Diagnóstico',
                 'diagnostico'          => 'Diagnóstico',
                 'departamento'         => 'Departamento',
                 'ciudad'               => 'Ciudad',
@@ -400,7 +401,14 @@ if ($action === 'export' || !empty($exportType)) {
                     } elseif ($field === 'birthdate') {
                         $val = $val ? dol_print_date($db->jdate($val), 'dayrfc') : '';
                     }
-                    $ws->setCellValueByColumnAndRow($col, $row, $val);
+                    if ($field === 'diagnostico_codigo') {
+                        // Texto explícito: los códigos CIE con ceros a la izquierda
+                        // se convertirían en número al abrir el XLSX.
+                        $ws->setCellValueExplicitByColumnAndRow($col, $row, (string) $val,
+                            \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    } else {
+                        $ws->setCellValueByColumnAndRow($col, $row, $val);
+                    }
                     if ($field === 'total_consultas') {
                         $ws->getStyleByColumnAndRow($col, $row)->applyFromArray($styleNumber);
                     } else {

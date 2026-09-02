@@ -940,6 +940,7 @@ class RcvAnalyticsEngine
             .' se.ips_primaria,'
             .' d_med2.nombre           AS medico_tratante,'
             .' se.tipo_de_poblacion,'
+            .' d_diag.codigo           AS diagnostico_codigo,'
             .' d_diag.label            AS diagnostico,'
             .' COUNT(c.rowid)          AS total_consultas,'
             .' MAX(c.date_start)       AS ultima_consulta'
@@ -952,7 +953,7 @@ class RcvAnalyticsEngine
             .' d_med.etiqueta, se.concentracion, d_op.nombre,'
             .' se.sede_operador_logistico, d_prog.nombre, se.estado_del_paciente,'
             .' se.estado_vital, se.ips_primaria, d_med2.nombre,'
-            .' se.tipo_de_poblacion, d_diag.label'
+            .' se.tipo_de_poblacion, d_diag.codigo, d_diag.label'
             .' ORDER BY '.$sortfield.' '.$sortorder;
 
         $rows = $this->fetchRows($sql);
