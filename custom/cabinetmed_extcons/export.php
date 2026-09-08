@@ -73,6 +73,62 @@ $form = new Form($db);
 // Status labels
 $status_labels = array(0 => 'En progreso', 1 => 'Completada', 2 => 'Cancelada');
 
+/**
+ * Construye las etiquetas de columna de los campos personalizados, garantizando que sean únicas.
+ *
+ * Los campos se deduplican por field_name, así que al exportar varios tipos de consulta a la vez
+ * cada tipo aporta su propio campo y varios terminan con la misma etiqueta ("Concentración",
+ * "Medicamento", "Cantidad"...). Excel y LibreOffice no admiten encabezados repetidos: renumeran
+ * las columnas o descartan la fila de títulos. Aquí se desambiguan añadiendo el tipo de consulta
+ * y, si aún colisionan, el nombre técnico del campo.
+ *
+ * @param array $field_defs       Definiciones de campo (field_name, field_label, fk_type)
+ * @param array $type_id_labels   rowid del tipo de consulta => etiqueta del tipo
+ * @param array $reserved_labels  Etiquetas ya usadas por las columnas fijas del export
+ * @return string[]               Una etiqueta por definición, en el mismo orden, todas distintas
+ */
+function extconsBuildFieldHeaders($field_defs, $type_id_labels, $reserved_labels = array()) {
+    // Las columnas fijas ya ocupan su etiqueta: un campo personalizado llamado igual
+    // ("EPS", "Departamento", "Medicamento") también tiene que desambiguarse.
+    $label_count = array();
+    $used = array();
+    foreach ($reserved_labels as $reserved) {
+        $reserved = trim((string) $reserved);
+        if ($reserved === '') continue;
+        $label_count[$reserved] = 1;
+        $used[$reserved] = true;
+    }
+
+    // 1a pasada: contar repeticiones para desambiguar sólo lo necesario
+    foreach ($field_defs as $fdef) {
+        $label = trim((string) $fdef->field_label);
+        if ($label === '') $label = $fdef->field_name;
+        $label_count[$label] = isset($label_count[$label]) ? $label_count[$label] + 1 : 1;
+    }
+
+    // 2a pasada: generar la etiqueta final
+    $headers = array();
+    foreach ($field_defs as $fdef) {
+        $label = trim((string) $fdef->field_label);
+        if ($label === '') $label = $fdef->field_name;
+
+        if ($label_count[$label] > 1) {
+            $type_id = (int) $fdef->fk_type;
+            if (!empty($type_id_labels[$type_id])) {
+                $label .= ' ('.$type_id_labels[$type_id].')';
+            }
+        }
+        // Mismo tipo y misma etiqueta: el nombre técnico sí es único (dedup por field_name)
+        if (isset($used[$label])) {
+            $label .= ' ['.$fdef->field_name.']';
+        }
+        $used[$label] = true;
+        $headers[] = $label;
+    }
+
+    return $headers;
+}
+
 /*
  * ============================================================
  * EXPORT ACTION — outputs CSV directly, without HTML wrapper
@@ -86,6 +142,7 @@ if ($action === 'export' && !empty($filter_types)) {
 
     // --- 1. Resolve type info (multiple) ---
     $type_labels_map = array(); // code => label
+    $type_id_labels = array();  // rowid => label
     $type_ids = array();
     {
         $types_escaped_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -94,6 +151,7 @@ if ($action === 'export' && !empty($filter_types)) {
         $res_type  = $db->query($sql_type);
         while ($res_type && $trow = $db->fetch_object($res_type)) {
             $type_labels_map[$trow->code] = $trow->label;
+            $type_id_labels[(int) $trow->rowid] = $trow->label;
             $type_ids[] = (int) $trow->rowid;
         }
     }
@@ -104,7 +162,7 @@ if ($action === 'export' && !empty($filter_types)) {
     $field_names_seen = array();
     if (!empty($type_ids)) {
         $type_ids_str = implode(',', $type_ids);
-        $sql_fd  = "SELECT field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
+        $sql_fd  = "SELECT fk_type, field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
         $sql_fd .= " WHERE fk_type IN (".$type_ids_str.") AND active = 1 ORDER BY fk_type ASC, position ASC";
         $res_fd  = $db->query($sql_fd);
         while ($res_fd && $f = $db->fetch_object($res_fd)) {
@@ -172,10 +230,15 @@ if ($action === 'export' && !empty($filter_types)) {
     $sql .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
     $sql .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad,";
     $sql .= " c.custom_data, c.note_public, c.observaciones,";
-    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula";
+    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
+    // Datos del paciente resueltos a etiqueta, para poder filtrarlos en Excel
+    $sql .= " d_med.etiqueta AS patient_medicamento, d_eps.descripcion AS patient_eps, dep.nom AS patient_departamento";
     $sql .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = c.fk_soc";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_medicamento d_med ON d_med.rowid = ef.medicamento";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_eps d_eps ON d_eps.rowid = ef.eps";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_departements dep ON dep.rowid = s.fk_departement";
     $sql .= " WHERE c.entity = ".$conf->entity;
     if (!empty($filter_types)) {
         $types_in_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -238,6 +301,9 @@ if ($action === 'export' && !empty($filter_types)) {
     $headers = array(
         'Nombre del paciente',
         'Número de documento',
+        'Medicamento (paciente)',
+        'EPS (paciente)',
+        'Departamento (paciente)',
         'Tipo de consulta',
         'Fecha inicio',
         'Fecha fin',
@@ -246,8 +312,9 @@ if ($action === 'export' && !empty($filter_types)) {
         'Estado',
         'Encargado(s)',
     );
-    foreach ($field_defs as $fdef) {
-        $headers[] = $fdef->field_label;
+    $reserved_headers = array_merge($headers, array('Observaciones generales'));
+    foreach (extconsBuildFieldHeaders($field_defs, $type_id_labels, $reserved_headers) as $field_header) {
+        $headers[] = $field_header;
     }
     $headers[] = 'Observaciones generales';
 
@@ -265,6 +332,9 @@ if ($action === 'export' && !empty($filter_types)) {
         $line = array(
             $cleanCell($row->patient_name),
             $cleanCell($row->patient_cedula),
+            $cleanCell($row->patient_medicamento),
+            $cleanCell($row->patient_eps),
+            $cleanCell($row->patient_departamento),
             isset($type_labels_map[$row->tipo_atencion]) ? $type_labels_map[$row->tipo_atencion] : $row->tipo_atencion,
             $row->date_start ? dol_print_date($db->jdate($row->date_start), 'dayhour') : '',
             $row->date_end   ? dol_print_date($db->jdate($row->date_end),   'dayhour') : '',
@@ -342,7 +412,7 @@ if ($action === 'export' && !empty($filter_types)) {
         }
     } else {
         // Anchos fijos para exports grandes (auto-size es muy costoso en memoria)
-        $fixed_widths = array(1 => 30, 2 => 18, 3 => 22, 4 => 18, 5 => 18, 6 => 18, 7 => 18, 8 => 14, 9 => 28);
+        $fixed_widths = array(1 => 30, 2 => 18, 3 => 28, 4 => 24, 5 => 20, 6 => 22, 7 => 18, 8 => 18, 9 => 18, 10 => 18, 11 => 14, 12 => 28);
         for ($c = 1; $c <= $numCols; $c++) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
             $sheet->getColumnDimension($colLetter)->setWidth(isset($fixed_widths[$c]) ? $fixed_widths[$c] : 22);
@@ -381,6 +451,7 @@ if ($action === 'export_csv' && !empty($filter_types)) {
 
     // --- 1. Resolver tipos ---
     $type_labels_map = array();
+    $type_id_labels = array();  // rowid => label
     $type_ids = array();
     {
         $types_escaped_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -389,6 +460,7 @@ if ($action === 'export_csv' && !empty($filter_types)) {
         $res_type  = $db->query($sql_type);
         while ($res_type && $trow = $db->fetch_object($res_type)) {
             $type_labels_map[$trow->code] = $trow->label;
+            $type_id_labels[(int) $trow->rowid] = $trow->label;
             $type_ids[] = (int) $trow->rowid;
         }
     }
@@ -398,7 +470,7 @@ if ($action === 'export_csv' && !empty($filter_types)) {
     $field_names_seen = array();
     if (!empty($type_ids)) {
         $type_ids_str = implode(',', $type_ids);
-        $sql_fd  = "SELECT field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
+        $sql_fd  = "SELECT fk_type, field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
         $sql_fd .= " WHERE fk_type IN (".$type_ids_str.") AND active = 1 ORDER BY fk_type ASC, position ASC";
         $res_fd  = $db->query($sql_fd);
         while ($res_fd && $f = $db->fetch_object($res_fd)) {
@@ -435,10 +507,15 @@ if ($action === 'export_csv' && !empty($filter_types)) {
     $sql .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
     $sql .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad,";
     $sql .= " c.custom_data, c.note_public, c.observaciones,";
-    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula";
+    $sql .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
+    // Datos del paciente resueltos a etiqueta, para poder filtrarlos en Excel
+    $sql .= " d_med.etiqueta AS patient_medicamento, d_eps.descripcion AS patient_eps, dep.nom AS patient_departamento";
     $sql .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = c.fk_soc";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_medicamento d_med ON d_med.rowid = ef.medicamento";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_eps d_eps ON d_eps.rowid = ef.eps";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_departements dep ON dep.rowid = s.fk_departement";
     $sql .= " WHERE c.entity = ".$conf->entity;
     if (!empty($filter_types)) {
         $types_in_sql = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -497,6 +574,9 @@ if ($action === 'export_csv' && !empty($filter_types)) {
     $headers = array(
         'Nombre del paciente',
         'Número de documento',
+        'Medicamento (paciente)',
+        'EPS (paciente)',
+        'Departamento (paciente)',
         'Tipo de consulta',
         'Fecha inicio',
         'Fecha fin',
@@ -505,8 +585,9 @@ if ($action === 'export_csv' && !empty($filter_types)) {
         'Estado',
         'Encargado(s)',
     );
-    foreach ($field_defs as $fdef) {
-        $headers[] = $fdef->field_label;
+    $reserved_headers = array_merge($headers, array('Observaciones generales'));
+    foreach (extconsBuildFieldHeaders($field_defs, $type_id_labels, $reserved_headers) as $field_header) {
+        $headers[] = $field_header;
     }
     $headers[] = 'Observaciones generales';
 
@@ -539,6 +620,9 @@ if ($action === 'export_csv' && !empty($filter_types)) {
         $line = array(
             $cleanCell($row->patient_name),
             $cleanCell($row->patient_cedula),
+            $cleanCell($row->patient_medicamento),
+            $cleanCell($row->patient_eps),
+            $cleanCell($row->patient_departamento),
             isset($type_labels_map[$row->tipo_atencion]) ? $type_labels_map[$row->tipo_atencion] : $row->tipo_atencion,
             $row->date_start ? dol_print_date($db->jdate($row->date_start), 'dayhour') : '',
             $row->date_end   ? dol_print_date($db->jdate($row->date_end),   'dayhour') : '',
@@ -633,6 +717,7 @@ $PREVIEW_LIMIT  = 20;
 if (!empty($filter_types)) {
     // Resolve types (multiple)
     $preview_type_labels_map = array();
+    $preview_type_id_labels = array(); // rowid => label
     $preview_type_ids = array();
     {
         $prev_types_esc = implode(',', array_map(function($t) use ($db) { return "'".$db->escape($t)."'"; }, $filter_types));
@@ -641,6 +726,7 @@ if (!empty($filter_types)) {
         $res_pt  = $db->query($sql_pt);
         while ($res_pt && $trow_pt = $db->fetch_object($res_pt)) {
             $preview_type_labels_map[$trow_pt->code] = $trow_pt->label;
+            $preview_type_id_labels[(int) $trow_pt->rowid] = $trow_pt->label;
             $preview_type_ids[] = (int) $trow_pt->rowid;
         }
     }
@@ -650,7 +736,7 @@ if (!empty($filter_types)) {
     $preview_field_names_seen = array();
     if (!empty($preview_type_ids)) {
         $preview_type_ids_str = implode(',', $preview_type_ids);
-        $sql_pf  = "SELECT field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
+        $sql_pf  = "SELECT fk_type, field_name, field_label, field_type, field_options FROM ".MAIN_DB_PREFIX."cabinetmed_extcons_fields";
         $sql_pf .= " WHERE fk_type IN (".$preview_type_ids_str.") AND active = 1 ORDER BY fk_type ASC, position ASC";
         $res_pf  = $db->query($sql_pf);
         while ($res_pf && $pf = $db->fetch_object($res_pf)) {
@@ -703,11 +789,15 @@ if (!empty($filter_types)) {
     $sql_prev .= " c.motivo, c.diagnostico, c.procedimiento, c.insumos_enf, c.rx_num, c.medicamentos,";
     $sql_prev .= " c.cumplimiento, c.razon_inc, c.mes_actual, c.proximo_mes, c.dificultad, c.note_public, c.observaciones,";
     $sql_prev .= " s.nom AS patient_name, ef.n_documento AS patient_cedula,";
+    $sql_prev .= " d_med.etiqueta AS patient_medicamento, d_eps.descripcion AS patient_eps, dep.nom AS patient_departamento,";
     $sql_prev .= " GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(u.firstname,''), ' ', IFNULL(u.lastname,'')))";
     $sql_prev .= "   ORDER BY u.lastname SEPARATOR ', ') AS assigned_users";
     $sql_prev .= " FROM ".MAIN_DB_PREFIX."cabinetmed_extcons c";
     $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = c.fk_soc";
     $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields ef ON ef.fk_object = c.fk_soc";
+    $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_medicamento d_med ON d_med.rowid = ef.medicamento";
+    $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."gestion_eps d_eps ON d_eps.rowid = ef.eps";
+    $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."c_departements dep ON dep.rowid = s.fk_departement";
     $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."cabinetmed_extcons_users eu ON eu.fk_extcons = c.rowid";
     $sql_prev .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = eu.fk_user";
     $sql_prev .= " WHERE c.entity = ".$conf->entity;
@@ -1100,12 +1190,21 @@ if (!empty($filter_types)) {
         print '<thead><tr class="liste_titre">';
         print '<th>Nombre del paciente</th>';
         print '<th>Número de documento</th>';
+        print '<th>Medicamento (paciente)</th>';
+        print '<th>EPS (paciente)</th>';
+        print '<th>Departamento (paciente)</th>';
         if (count($filter_types) > 1) print '<th>Tipo de consulta</th>';
         print '<th>Fecha inicio</th>';
         print '<th>Estado</th>';
         print '<th>Encargado(s)</th>';
-        foreach ($preview_fields as $pf) {
-            print '<th>'.dol_escape_htmltag($pf->field_label).'</th>';
+        $preview_reserved = array(
+            'Nombre del paciente', 'Número de documento', 'Medicamento (paciente)',
+            'EPS (paciente)', 'Departamento (paciente)', 'Tipo de consulta', 'Fecha inicio',
+            'Fecha fin', 'Fecha creación', 'Última modificación', 'Estado', 'Encargado(s)',
+            'Observaciones generales',
+        );
+        foreach (extconsBuildFieldHeaders($preview_fields, $preview_type_id_labels, $preview_reserved) as $preview_header) {
+            print '<th>'.dol_escape_htmltag($preview_header).'</th>';
         }
         print '<th>Observaciones generales</th>';
         print '</tr></thead>';
@@ -1126,6 +1225,9 @@ if (!empty($filter_types)) {
 
             print '<td>'.dol_escape_htmltag(trim($prow->patient_name)).'</td>';
             print '<td>'.dol_escape_htmltag(trim($prow->patient_cedula)).'</td>';
+            print '<td>'.dol_escape_htmltag(trim((string) $prow->patient_medicamento)).'</td>';
+            print '<td>'.dol_escape_htmltag(trim((string) $prow->patient_eps)).'</td>';
+            print '<td>'.dol_escape_htmltag(trim((string) $prow->patient_departamento)).'</td>';
             if (count($filter_types) > 1) {
                 $prow_type_label = isset($preview_type_labels_map[$prow->tipo_atencion]) ? $preview_type_labels_map[$prow->tipo_atencion] : $prow->tipo_atencion;
                 print '<td>'.dol_escape_htmltag($prow_type_label).'</td>';
